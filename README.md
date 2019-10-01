@@ -5,5 +5,9 @@
 * docker-compose
 
 ## Running
-`docker-compose -f <file> up` to run the corresponding sawtooth network.  
-`sawtooth_devmode` is prefered now, the others are not properly configured yet.
+`docker-compose -f sawtooth_devmode up` to run the corresponding sawtooth network.
+
+after the network started, the transaction processor can be started from `CSVStringTP.main`  
+it should be visible in the terminal that a transaction processor connected.
+
+now the transaction can be sent (+event subscription) from `Main`

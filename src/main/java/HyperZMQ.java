@@ -1,4 +1,8 @@
 import com.google.protobuf.ByteString;
+import com.google.protobuf.InvalidProtocolBufferException;
+import org.zeromq.ZContext;
+import org.zeromq.ZMQ;
+import org.zeromq.ZMsg;
 import sawtooth.sdk.protobuf.*;
 import sawtooth.sdk.signing.PrivateKey;
 import sawtooth.sdk.signing.Secp256k1Context;

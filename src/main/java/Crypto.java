@@ -1,5 +1,3 @@
-import sun.nio.cs.UTF_8;
-
 import javax.crypto.*;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;

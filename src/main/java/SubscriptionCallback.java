@@ -1,3 +1,3 @@
 public interface SubscriptionCallback {
-    void stateChange(String group, String message);
+    void newMessageOnChain(String group, String message);
 }

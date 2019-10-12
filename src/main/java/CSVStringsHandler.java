@@ -1,5 +1,4 @@
 import com.google.protobuf.ByteString;
-import com.google.protobuf.ProtocolStringList;
 import sawtooth.sdk.processor.Context;
 import sawtooth.sdk.processor.TransactionHandler;
 import sawtooth.sdk.processor.Utils;
@@ -8,11 +7,10 @@ import sawtooth.sdk.processor.exceptions.InvalidTransactionException;
 import sawtooth.sdk.protobuf.TpProcessRequest;
 import sawtooth.sdk.protobuf.TransactionHeader;
 
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.logging.Logger;
 
-import static java.nio.charset.StandardCharsets.*;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class CSVStringsHandler implements TransactionHandler {
     private final Logger log = Logger.getLogger(CSVStringsHandler.class.getName());
@@ -58,7 +56,6 @@ public class CSVStringsHandler implements TransactionHandler {
             throw new InvalidTransactionException("Payload is empty!");
         }
 
-
         String payloadStr = tpProcessRequest.getPayload().toString(UTF_8);
         log.info("Got payload: " + payloadStr);
 
@@ -91,10 +88,10 @@ public class CSVStringsHandler implements TransactionHandler {
         String hashedGroup = Utils.hash512(group.getBytes(UTF_8));
         // for now just use the group as identifier for the remaining bytes
         String address = namespace + hashedGroup.substring(hashedGroup.length() - 64);
-        log.info("Address calculated as: " + address + "  (size=" + address.length() + ")");
+        //log.info("Address calculated as: " + address + "  (size=" + address.length() + ")");
 
         // Fire event with the message //////////////////////////////////////
-        log.info("firing event...");
+        //log.info("firing event...");
         Map.Entry<String, String> e = new AbstractMap.SimpleEntry<>("address", address);
         Collection<Map.Entry<String, String>> collection = Arrays.asList(e);
         //  addEvent(String identifier, collection<attributes>, data bytestring)
@@ -105,31 +102,33 @@ public class CSVStringsHandler implements TransactionHandler {
         Collection<String> checkAddr = new ArrayList<>();
         checkAddr.add(address);
 
-        log.info("Checking state at address " + checkAddr.toString());
+        //log.info("Checking state at address " + checkAddr.toString());
         Map<String, ByteString> alreadySetValues = context.getState(checkAddr);
 
+/*
         if (alreadySetValues != null) {
-            alreadySetValues.forEach((key, value) -> log.info("Values at address before: "
+            alreadySetValues.forEach((key, value) ->
+                    log.info("Values at address before: "
                     + key + "=" + value.toString(UTF_8)));
             log.info("WILL BE OVERWRITTEN");
         } else {
             log.info("address is empty.");
         }
-
+*/
         // Prepare the message to be set
         Map.Entry<String, ByteString> entry = new AbstractMap.SimpleEntry<>(address,
                 ByteString.copyFrom(message.getBytes(UTF_8)));
-        log.info("preparing entry to set: " + entry.toString());
+        //log.info("preparing entry to set: " + entry.toString());
         Collection<Map.Entry<String, ByteString>> addressValues = Arrays.asList(entry);
-        log.info("collection to set: " + addressValues.toString());
+        //log.info("collection to set: " + addressValues.toString());
         Collection<String> returnedAddresses = context.setState(addressValues);
 
         // Check if successful
         if (returnedAddresses.isEmpty()) {
             throw new InvalidTransactionException("Set state error");
         }
-        log.info("Returned Addresses from setting new value:");
-        returnedAddresses.forEach(log::info);
+      /*  log.info("Returned Addresses from setting new value:");
+        returnedAddresses.forEach(log::info);*/
     }
 
 }

@@ -3,33 +3,23 @@ import org.zeromq.ZContext;
 import org.zeromq.ZMQ;
 import sawtooth.sdk.protobuf.*;
 
+import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
 class EventHandler {
-    private final Crypto _crypto;
     private final HyperZMQ _hyperzmq;
     private boolean _runEventReceiver = true;
     private Logger log = Logger.getLogger(EventHandler.class.getName());
-    private List<String> _subscribedGroups = new ArrayList<>();
 
-    EventHandler(HyperZMQ callback, Crypto crypto) {
+    EventHandler(HyperZMQ callback) {
         this._hyperzmq = callback;
-        this._crypto = crypto;
         subscribe();
     }
 
-    void addGroup(String groupName) {
-        _subscribedGroups.add(groupName);
-    }
-
-    void removeGroup(String groupName) {
-        _subscribedGroups.remove(groupName);
-    }
-
     /**
-     * Connect to the event subsystem. If successful start a thread which receives events.
+     * Connect to the event subsystem. If successful, start a thread which receives events.
      */
     private void subscribe() {
         log.info("Subscribing...");
@@ -59,14 +49,14 @@ class EventHandler {
                 .setContent(request.toByteString())
                 .build();
 
-        log.info("Sending subscription request...");
+        //log.info("Sending subscription request...");
         socket.send(message.toByteArray());
 
         byte[] responseBytes = socket.recv();
         Message respMsg = null;
         try {
             respMsg = Message.parseFrom(responseBytes);
-            log.info("Response deserialized: " + respMsg.toString());
+            //log.info("Response deserialized: " + respMsg.toString());
         } catch (InvalidProtocolBufferException e) {
             e.printStackTrace();
         }
@@ -126,13 +116,9 @@ class EventHandler {
                     String group = parts[0];
                     String encMessage = parts[1];
                     log.info("Group: " + group);
-                    log.info("encMessage: " + encMessage);
-                    if (_subscribedGroups.contains(group)) {
-                        log.info("The group is subscribed, message is passed to the callback!");
-                        String cleartext = _crypto.decrypt(group, encMessage);
-                        //log.info("cleartext: " + cleartext);
-                        _hyperzmq.newMessage(group, cleartext);
-                    }
+                    log.info("Encrypted Message: " + encMessage);
+
+                    _hyperzmq.newMessage(group, encMessage);
                 }
             } catch (InvalidProtocolBufferException e) {
                 e.printStackTrace();

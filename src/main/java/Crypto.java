@@ -1,61 +1,34 @@
-import javax.crypto.*;
+import javax.crypto.Cipher;
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.math.BigInteger;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.security.cert.CertificateException;
 import java.util.*;
+import java.util.logging.Logger;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class Crypto {
+    private Logger log = Logger.getLogger(getClass().getName());
     private static final char[] HEX_ARRAY = "0123456789ABCDEF".toCharArray();
-    private static final String CRYPT_ALGORITHM = "AES/GCM/NoPadding";
     private static final int KEY_LENGTH = 32; // in bytes = 256bit
-    private static final int IV_LENGTH = 12;
     private static final String PKCS_12 = "pkcs12";
-    private static final Charset UTF8 = StandardCharsets.UTF_8;
     private static String DEFAULT_KEYSTORE_PATH = "keystore.jks";
     private char[] _keyStorePass;
     private String _pathToKeyStore;
     private HyperZMQ _hyperZMQ;
 
-    // public static final Builder Builder = new Builder();
+    private static final int KEY_SIZE_BITS = 128;
+    private static final int GCM_TAG_SIZE_BITS = 128;
+    private static final int GCM_IV_SIZE_BYTES = 12;
 
     private Map<String, SecretKey> _keys = new HashMap<>();
-
-/*
-    private Crypto() {
-    }
-
-    public Crypto(Builder builder) {
-        this.keyStorePass = builder.keyStorePass;
-        this.pathToKeyStore = builder.pathToKeyStore;
-    }
-
-    private static class Builder {
-        private static String DEFAULT_KEYSTORE_PATH = "keystore.jks";
-        private char[] keyStorePass = {Character.MIN_VALUE};
-        private String pathToKeyStore = DEFAULT_KEYSTORE_PATH;
-
-        public Builder setKeyStorePass(char[] keyStorePass) {
-            this.keyStorePass = keyStorePass;
-            return this;
-        }
-
-        public Builder setpathToKeyStore(String pathToKeyStore) {
-            this.pathToKeyStore = pathToKeyStore;
-            return this;
-        }
-
-        public Crypto build() {
-            return new Crypto(this);
-        }
-    }
-*/
 
     /**
      * Create a instance which loads the KeyStore from the given path (which should include <filename>.jks.
@@ -64,7 +37,7 @@ public class Crypto {
      * @param password     password of the keystore
      * @param createNew    whether to create a new keystore
      */
-    public Crypto(HyperZMQ hyperZMQ, String keystorePath, char[] password, boolean createNew) {
+    Crypto(HyperZMQ hyperZMQ, String keystorePath, char[] password, boolean createNew) {
         this._keyStorePass = password;
         this._pathToKeyStore = keystorePath;
         this._hyperZMQ = hyperZMQ;
@@ -82,7 +55,7 @@ public class Crypto {
      * @param password  password of the keystore
      * @param createNew whether to create a new keystore
      */
-    public Crypto(HyperZMQ hyperZMQ, char[] password, boolean createNew) {
+    Crypto(HyperZMQ hyperZMQ, char[] password, boolean createNew) {
         this(hyperZMQ, DEFAULT_KEYSTORE_PATH, password, createNew);
     }
 
@@ -99,111 +72,163 @@ public class Crypto {
         }
     }
 
-    /**
+    /* *//**
      * Decode the given String in Base64, then decrypt the result using AES256 with the groups keys.
      *
      * @param groupName  groupName
      * @param cipherText cipherText, which is a Base64 encoded String
      * @return clearText or null upon error
-     */
-    public String decrypt(String groupName, String cipherText) {
-        return decrypt(groupName, cipherText.getBytes(UTF8));
-    }
+     *//*
+    public byte[] decrypt(String groupName, String cipherText) {
+        log.info("[DECRYPT] group " + groupName + " ciphertext: " + cipherText);
 
-    /**
-     * Decode the given String in Base64, then decrypt the result using AES256 with the groups keys.
-     *
-     * @param groupName  groupName
-     * @param cipherText cipherText, the RAW payload
-     * @return clearText or null upon error
-     */
-    public String decrypt(String groupName, byte[] cipherText) {
-        if (!_keys.containsKey(groupName)) {
-            throw new IllegalArgumentException("Unknown Group Name: " + groupName);
-        }
+        SecretKey key = _keys.get(groupName);
+        log.info("DECRYPT KEY: " + Base64.getEncoder().encodeToString(key.getEncoded()));
+        byte[] cipherTextBytes = cipherText.getBytes(UTF8);
+        //Base64.getDecoder().decode(cipherText);
+        GCMParameterSpec gcmParameterSpec = new GCMParameterSpec(128, cipherTextBytes, 0, 12);
+        byte[] cipherBytes = Arrays.copyOfRange(cipherTextBytes, IV_LENGTH, cipherTextBytes.length);
 
         try {
-            return new String(decrypt(_keys.get(groupName), cipherText), UTF8);
-        } catch (NoSuchPaddingException e) {
-            e.printStackTrace();
-        } catch (InvalidKeyException e) {
-            e.printStackTrace();
-        } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();
-        } catch (IllegalBlockSizeException e) {
-            e.printStackTrace();
-        } catch (BadPaddingException e) {
-            e.printStackTrace();
-        } catch (InvalidAlgorithmParameterException e) {
+            Cipher cipher = Cipher.getInstance(CRYPT_ALGORITHM);
+            cipher.init(Cipher.DECRYPT_MODE, key, gcmParameterSpec);
+            cipher.update(cipherBytes);
+            byte[] decryptedBytes = cipher.doFinal(gcmParameterSpec.getIV());
+            return decryptedBytes;
+            //return new String(decryptedBytes, UTF8);
+        } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | InvalidAlgorithmParameterException | IllegalBlockSizeException | BadPaddingException e) {
             e.printStackTrace();
         }
         return null;
     }
 
+    */
+
     /**
      * Encrypts the clearText using AES256 with the groups key, then encodes the result as Base64
      *
-     * @param groupName groupName
-     * @param clearText clearText
+     * @param
+     * @param
      * @return encrypted text as Base64 String or null upon error
-     */
+     *//*
     public String encrypt(String groupName, String clearText) {
-        return encrypt(groupName, clearText.getBytes(UTF8));
-    }
+        //return encrypt(groupName, clearText.getBytes(UTF8));
+        byte[] clearTextBytes = clearText.getBytes(UTF8);
+        //Base64.getDecoder().decode(clearText);
+        SecretKey key = _keys.get(groupName);
+        log.info("ENCRYPT KEY: " + Base64.getEncoder().encodeToString(key.getEncoded()));
 
-    /**
-     * Encrypts the clearText using AES256 with the groups key, then encodes the result as Base64
-     *
-     * @param groupName groupName
-     * @param clearText clearText
-     * @return encrypted text as Base64 String or null upon error
-     */
-    public String encrypt(String groupName, byte[] clearText) {
-        if (!_keys.containsKey(groupName)) {
-            throw new IllegalArgumentException("Unknown Group Name: " + groupName);
-        }
+        final byte[] iv = new byte[IV_LENGTH];
+        new SecureRandom().nextBytes(iv);
+        GCMParameterSpec gcmParameterSpec = new GCMParameterSpec(128, iv, 0, 12);
+
         try {
-            return new String(encrypt(_keys.get(groupName), clearText), UTF8);
-        } catch (NoSuchPaddingException e) {
-            e.printStackTrace();
-        } catch (BadPaddingException e) {
-            e.printStackTrace();
-        } catch (InvalidKeyException e) {
-            e.printStackTrace();
-        } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();
-        } catch (IllegalBlockSizeException e) {
-            e.printStackTrace();
-        } catch (InvalidAlgorithmParameterException e) {
+            Cipher cipher = Cipher.getInstance(CRYPT_ALGORITHM);
+            cipher.init(Cipher.ENCRYPT_MODE, key, gcmParameterSpec);
+            byte[] cipherText = cipher.doFinal(clearTextBytes);
+
+            byte[] combined = new byte[iv.length + cipherText.length];
+            System.arraycopy(iv, 0, combined, 0, iv.length);
+            System.arraycopy(cipherText, 0, combined, iv.length, cipherText.length);
+            return Base64.getEncoder().encodeToString(combined);
+        } catch (IllegalBlockSizeException | BadPaddingException | NoSuchAlgorithmException | InvalidKeyException | InvalidAlgorithmParameterException | NoSuchPaddingException e) {
             e.printStackTrace();
         }
+
         return null;
     }
 
-    public List<String> getGroupNames() {
+*/
+    SecretKey generateKey() throws NoSuchAlgorithmException {
+        SecureRandom random = SecureRandom.getInstanceStrong();
+        KeyGenerator keyGen = KeyGenerator.getInstance("AES");
+        keyGen.init(KEY_SIZE_BITS, random);
+        return keyGen.generateKey();
+    }
+
+    String encrypt(String plainText, String group) throws GeneralSecurityException, IllegalStateException {
+        SecretKey key = _keys.get(group);
+        if (key == null) throw new IllegalStateException("No key found for group=" + group);
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+
+        byte[] iv = generateRandomIV();
+
+        GCMParameterSpec spec = new GCMParameterSpec(GCM_TAG_SIZE_BITS, iv);
+        cipher.init(Cipher.ENCRYPT_MODE, key, spec);
+
+        byte[] bytePassword = plainText.getBytes(UTF_8);
+        byte[] ivCTAndTag = new byte[GCM_IV_SIZE_BYTES + cipher.getOutputSize(bytePassword.length)];
+        System.arraycopy(iv, 0, ivCTAndTag, 0, GCM_IV_SIZE_BYTES);
+
+        cipher.doFinal(bytePassword, 0, bytePassword.length, ivCTAndTag, GCM_IV_SIZE_BYTES);
+
+        return Base64.getEncoder().encodeToString(ivCTAndTag);
+    }
+
+    private static byte[] generateRandomIV() {
+        byte[] iv = new byte[GCM_IV_SIZE_BYTES];
+        SecureRandom random = new SecureRandom();
+        random.nextBytes(iv);
+        return iv;
+    }
+
+    private SecretKey generateSecretKey() {
+        final byte[] raw = new byte[KEY_LENGTH];
+        new SecureRandom().nextBytes(raw);
+        return new SecretKeySpec(raw, "AES");
+    }
+
+    String decrypt(String encryptedText, String group) throws GeneralSecurityException, IllegalStateException {
+        SecretKey key = _keys.get(group);
+        if (key == null) throw new IllegalStateException("No key found for group=" + group);
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+
+        byte[] ivAndCTWithTag = Base64.getDecoder().decode(encryptedText);
+
+        GCMParameterSpec spec = new GCMParameterSpec(GCM_TAG_SIZE_BITS, ivAndCTWithTag, 0, GCM_IV_SIZE_BYTES);
+        cipher.init(Cipher.DECRYPT_MODE, key, spec);
+
+        byte[] plaintext = cipher.doFinal(ivAndCTWithTag, GCM_IV_SIZE_BYTES, ivAndCTWithTag.length - GCM_IV_SIZE_BYTES);
+
+        return new String(plaintext, UTF_8);
+    }
+
+    List<String> getGroupNames() {
         return new ArrayList<>(_keys.keySet());
     }
 
-    public String getKeyForGroup(String groupName) {
+    boolean hasKeyForGroup(String groupName) {
+        return _keys.containsKey(groupName);
+    }
+
+    String getKeyForGroup(String groupName) {
         if (_keys.containsKey(groupName)) {
-            return new String(Base64.getEncoder().encode(_keys.get(groupName).getEncoded()), UTF8);
+            return new String(Base64.getEncoder().encode(_keys.get(groupName).getEncoded()), UTF_8);
         }
         return null;
-        //return _keys.get(groupName);
     }
 
-    public void removeGroup(String groupName) {
-        _keys.remove(groupName);
+    void createGroup(String name) throws IllegalArgumentException {
+        if (_keys.containsKey(name)) {
+            throw new IllegalArgumentException("Name already in use");
+        }
+        _keys.put(name, generateSecretKey());
+        saveKeyStore();
+        //log.info("created group " + name + " with key (b64) " + Base64.getEncoder().encodeToString(_keys.get(name).getEncoded()));
     }
 
-    public void addGroup(String groupName, String key) {
+    void addGroup(String groupName, String key) {
         byte[] keyBytes = Base64.getDecoder().decode(key);
         if (keyBytes.length != KEY_LENGTH) {
             throw new IllegalArgumentException("Key size is invalid! Expected 32, got " + keyBytes.length);
         }
-        SecretKey secretKey = new SecretKeySpec(keyBytes, "AES");
-        _keys.put(groupName, secretKey);
+        _keys.put(groupName, new SecretKeySpec(Base64.getDecoder().decode(key), "AES"));
         saveKeyStore();
+        //log.info("Added group " + groupName + " with key (b64) " + Base64.getEncoder().encodeToString(_keys.get(groupName).getEncoded()));
+    }
+
+    void removeGroup(String groupName) {
+        _keys.remove(groupName);
     }
 
     private void loadKeyStore(char[] password) {
@@ -257,62 +282,6 @@ public class Crypto {
             e.printStackTrace();
             throw new InternalError("Saving the keystore failed with exception: " + e.getLocalizedMessage());
         }
-    }
-
-    public void createGroup(String name) throws GeneralSecurityException, IOException {
-        if (_keys.containsKey(name)) {
-            throw new IllegalArgumentException("Name already in use");
-        }
-        _keys.put(name, generateSecretKey());
-        saveKeyStore();
-    }
-
-    private byte[] encrypt(SecretKey secretKey, GCMParameterSpec iv, byte[] plainText)
-            throws NoSuchPaddingException, NoSuchAlgorithmException, InvalidAlgorithmParameterException,
-            InvalidKeyException, BadPaddingException, IllegalBlockSizeException {
-        Cipher cipher = Cipher.getInstance(CRYPT_ALGORITHM);
-        cipher.init(Cipher.ENCRYPT_MODE, secretKey, iv);
-        return cipher.doFinal(plainText);
-    }
-
-    private byte[] decrypt(SecretKey secretKey, GCMParameterSpec iv, byte[] cipherText)
-            throws NoSuchPaddingException, NoSuchAlgorithmException, InvalidAlgorithmParameterException,
-            InvalidKeyException, BadPaddingException, IllegalBlockSizeException {
-        Cipher cipher = Cipher.getInstance(CRYPT_ALGORITHM);
-        cipher.init(Cipher.DECRYPT_MODE, secretKey, iv);
-        return cipher.doFinal(cipherText);
-    }
-
-    private byte[] encrypt(SecretKey secretKey, byte[] plaintext)
-            throws NoSuchPaddingException, BadPaddingException, InvalidKeyException, NoSuchAlgorithmException,
-            IllegalBlockSizeException, InvalidAlgorithmParameterException {
-        final byte[] iv = new byte[IV_LENGTH];
-        new SecureRandom().nextBytes(iv);
-        GCMParameterSpec params = new GCMParameterSpec(128, iv, 0, 12);
-        byte[] cipherText = encrypt(secretKey, params, plaintext);
-        byte[] combined = new byte[iv.length + cipherText.length];
-        System.arraycopy(iv, 0, combined, 0, iv.length);
-        System.arraycopy(cipherText, 0, combined, iv.length, cipherText.length);
-        return combined;
-    }
-
-    private byte[] decrypt(SecretKey secretKey, byte[] cipherText)
-            throws NoSuchPaddingException, InvalidKeyException, NoSuchAlgorithmException, IllegalBlockSizeException,
-            BadPaddingException, InvalidAlgorithmParameterException {
-        //byte[] iv = Arrays.copyOfRange(cipherText, 0, IV_LENGTH);
-        GCMParameterSpec params = new GCMParameterSpec(128, cipherText, 0, 12);
-        byte[] cipher = Arrays.copyOfRange(cipherText, IV_LENGTH, cipherText.length);
-        return decrypt(secretKey, params, cipher);
-    }
-
-    private SecretKey generateSecretKey()
-            throws GeneralSecurityException, IOException {
-        final byte[] raw = new byte[KEY_LENGTH];
-        new SecureRandom().nextBytes(raw);
-        // Even if we just generated the key, always read it back to ensure we
-        // can read it successfully.
-        //return byteArrayToHexChars(key.getEncoded());
-        return new SecretKeySpec(raw, "AES");
     }
 
     public byte[] hexStringToByteArray(String hex) {

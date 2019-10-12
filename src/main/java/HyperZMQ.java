@@ -11,10 +11,7 @@ import java.net.URLConnection;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -24,59 +21,68 @@ import static sawtooth.sdk.processor.Utils.hash512;
 public class HyperZMQ {
     private Logger log = Logger.getLogger(HyperZMQ.class.getName());
 
-    private Secp256k1Context context = new Secp256k1Context();
-    private PrivateKey privateKey = context.newRandomPrivateKey();
-    private Signer signer = new Signer(context, privateKey);
+    private Secp256k1Context _context = new Secp256k1Context();
+    private PrivateKey _privateKey = _context.newRandomPrivateKey();
+    private Signer _signer = new Signer(_context, _privateKey);
     private static final Charset UTF8 = StandardCharsets.UTF_8;
-    private EventHandler eventHandler;
-    private List<SubscriptionCallback> _callbacks = new ArrayList<>();
-    private Crypto crypto;
-    private String id;
+    private EventHandler _eventHandler;
+    private Map<String, List<SubscriptionCallback>> _callbacks = new HashMap<>();
+    private Crypto _crypto;
+    private String _id;
 
     public HyperZMQ(String id, String pathToKeyStore, String password, boolean createNewStore) {
-        this.id = id;
-        crypto = new Crypto(this, pathToKeyStore, password.toCharArray(), createNewStore);
+        this._id = id;
+        _crypto = new Crypto(this, pathToKeyStore, password.toCharArray(), createNewStore);
 
-        eventHandler = new EventHandler(this, crypto);
+        _eventHandler = new EventHandler(this);
     }
 
     public HyperZMQ(String id, String password, boolean createNewStore) {
-        this.id = id;
-        crypto = new Crypto(this, password.toCharArray(), createNewStore);
+        this._id = id;
+        _crypto = new Crypto(this, password.toCharArray(), createNewStore);
 
-        eventHandler = new EventHandler(this, crypto);
-
+        _eventHandler = new EventHandler(this);
     }
 
     public void sendMessageToChain(String group, String message) {
-        // Create the payload in CSV format
+        //TODO
+        if (group == null || message == null || group.isEmpty() || message.isEmpty()) {
+            log.warning("Empty group and/or message!");
+            return;
+        }
 
-        // The group stays in clearText to clients attempting to decrypt can know if they have
+        // Create the payload in CSV format
+        // The group stays in clearText so clients attempting to decrypt can know if they can without trial and error
         StringBuilder msg = new StringBuilder();
         msg.append(group).append(",");
         // Encrypt the message
-        byte[] msgBytes = message.getBytes(UTF8);
-        byte[] cipherText = crypto.encrypt(group, msgBytes).getBytes(UTF8);
-        // Encode it in Base64 and add it to the payload
-        byte[] encMessageBytes = Base64.getEncoder().encode(cipherText);
-        msg.append(new String(encMessageBytes, UTF8));
+        try {
+            msg.append(_crypto.encrypt(message, group));
+        } catch (GeneralSecurityException e) {
+            e.printStackTrace();
+            log.info("Message will not be send.");
+            return;
+        } catch (IllegalStateException e) {
+            log.info("Trying to encrypt for group for which the key is not present (" + group + "). Message will not be send.");
+            return;
+        }
         byte[] payloadBytes = msg.toString().getBytes(UTF8);
 
         // Create Transaction Header
         TransactionHeader header = TransactionHeader.newBuilder()
-                .setSignerPublicKey(signer.getPublicKey().hex())
+                .setSignerPublicKey(_signer.getPublicKey().hex())
                 .setFamilyName("csvstrings") // Has to be identical in TP
                 .setFamilyVersion("0.1")        // Has to be identical in TP
                 // TODO setting in/outputs increases security as it limits the read/write of the transaction processor
                 .addOutputs("2f9d35") // Set output as wildcard to our namespace
                 .addInputs("2f9d35")
                 .setPayloadSha512(hash512(payloadBytes))
-                .setBatcherPublicKey(signer.getPublicKey().hex())
+                .setBatcherPublicKey(_signer.getPublicKey().hex())
                 .setNonce(UUID.randomUUID().toString())
                 .build();
 
         // Create the Transaction
-        String signature = signer.sign(header.toByteArray());
+        String signature = _signer.sign(header.toByteArray());
 
         Transaction transaction = Transaction.newBuilder()
                 .setHeader(header.toByteString())
@@ -84,14 +90,13 @@ public class HyperZMQ {
                 .setHeaderSignature(signature)
                 .build();
         // Wrap the transaction in a Batch (atomic unit)
-
         // Create the BatchHeader
         // Transaction IDs have to be in the same order they are in the batch
         List<Transaction> transactions = new ArrayList<>();
         transactions.add(transaction);
 
         BatchHeader batchHeader = BatchHeader.newBuilder()
-                .setSignerPublicKey(signer.getPublicKey().hex())
+                .setSignerPublicKey(_signer.getPublicKey().hex())
                 .addAllTransactionIds(
                         transactions
                                 .stream()
@@ -102,21 +107,18 @@ public class HyperZMQ {
 
         // Create the Batch
         // The signature of the batch acts as the Batch's ID
-        String batchSignature = signer.sign(batchHeader.toByteArray());
-
+        String batchSignature = _signer.sign(batchHeader.toByteArray());
         Batch batch = Batch.newBuilder()
                 .setHeader(batchHeader.toByteString())
                 .addAllTransactions(transactions)
                 .setHeaderSignature(batchSignature)
                 .build();
-
         // Encode Batches in BatchList
         // The validator expects a batchlist (which is not atomic)
         byte[] batchListBytes = BatchList.newBuilder()
                 .addBatches(batch)
                 .build()
                 .toByteArray();
-
         // Send the BatchList as body via POST to the rest api /batches endpoint
         try {
             sendBatchList(batchListBytes);
@@ -152,42 +154,89 @@ public class HyperZMQ {
         }
     }
 
-    public void createGroup(String groupName, boolean subscribe) {
-        try {
-            crypto.createGroup(groupName);
-            if (subscribe) {
-                eventHandler.addGroup(groupName);
-            }
-        } catch (GeneralSecurityException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
+    public void createGroup(String groupName, SubscriptionCallback callback) {
+        _crypto.createGroup(groupName);
+        if (callback != null) {
+            subscribe(groupName, callback);
+        }
+    }
+
+    public void createGroup(String groupName) {
+        createGroup(groupName, null);
+    }
+
+    public void addGroup(String groupName, String key, SubscriptionCallback callback) {
+        _crypto.addGroup(groupName, key);
+        if (callback != null) {
+            subscribe(groupName, callback);
         }
     }
 
     public void addGroup(String groupName, String key) {
-        crypto.addGroup(groupName, key);
+        addGroup(groupName, key, null);
     }
 
+    public void addCallbackToGroup(String groupName, SubscriptionCallback callback) {
+        subscribe(groupName, callback);
+    }
+
+    /**
+     * ALL CALLBACKS ARE INVALIDATED WHEN THE GROUP IS REMOVED
+     *
+     * @param groupName name of group to remove key and callbacks for
+     */
     public void removeGroup(String groupName) {
-        crypto.removeGroup(groupName);
-        eventHandler.removeGroup(groupName);
+        _crypto.removeGroup(groupName);
+        // TODO
+        _callbacks.remove(groupName);
     }
 
     public List<String> getGroupNames() {
-        return crypto.getGroupNames();
+        return _crypto.getGroupNames();
     }
 
     public String getKeyForGroup(String groupName) {
-        return crypto.getKeyForGroup(groupName);
+        return _crypto.getKeyForGroup(groupName);
     }
 
-
+    /**
+     * Receives the message from the EventHandler. The message is not decrypted yet.
+     *
+     * @param group   group name
+     * @param message encrypted message
+     */
     void newMessage(String group, String message) {
-        log.info("New Message in Group '" + group + "': " + message);
-        for (SubscriptionCallback c : _callbacks) {
-            c.stateChange(group, message);
+        try {
+            String plaintext = _crypto.decrypt(message, group);
+            log.info("New message in group '" + group + "': " + plaintext);
+            // Send the message to all subscribers of that group
+            List<SubscriptionCallback> list = _callbacks.get(group);
+            if (list != null) {
+                log.info("Callback(s) found for the group...");
+                list.forEach(c -> c.newMessageOnChain(group, plaintext));
+            }
+        } catch (GeneralSecurityException e) {
+            e.printStackTrace();
+        } catch (IllegalStateException e) {
+            log.info("Received a message in a group for which a key is not present. (" + group + "," + message + ")");
         }
+    }
 
+    private void subscribe(String groupName, SubscriptionCallback callback) {
+        log.info("New subscription for group: " + groupName);
+        if (_callbacks.containsKey(groupName)) {
+            List<SubscriptionCallback> list = _callbacks.get(groupName);
+            if (list.contains(callback)) {
+                log.info("Subscription skipped, callback already registered.");
+            } else {
+                list.add(callback);
+                log.info("Subscription completed, callback registered to existing group.");
+            }
+        } else {
+            List<SubscriptionCallback> newList = new ArrayList<>();
+            newList.add(callback);
+            _callbacks.put(groupName, newList);
+            log.info("Subscription completed, new group created.");
+        }
     }
 }

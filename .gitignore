@@ -6,3 +6,7 @@
 *.class
 
 target/classes/META-INF/HyperZMQ.kotlin_module
+
+*.jks
+
+*.kotlin_module

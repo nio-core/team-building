@@ -1,13 +1,38 @@
-import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 
+import static org.junit.Assert.*;
+
 public class CryptoTest {
 
     @Test
-    public void completeTest() throws GeneralSecurityException, IOException {
+    public void testSaveLoadKeystore() throws GeneralSecurityException {
+        Crypto c1 = new Crypto(null, "password".toCharArray(), true);
+        String signerKey1 = c1.getSigner().getPublicKey().hex();
+        c1.createGroup("test");
+        String msg = "testmessage";
+        String enc = c1.encrypt(msg, "test");
+        String dec = c1.decrypt(enc, "test");
+
+        assertEquals(msg, dec);
+        c1 = null;
+        // Load the keystore of c1 and do the same again
+        Crypto c2 = new Crypto(null, "password".toCharArray(), false);
+        String signerKey2 = c2.getSigner().getPublicKey().hex();
+        assertTrue(c2.getGroupNames().contains("test"));
+        assertNotNull(c2.getKeyForGroup("test"));
+
+        enc = c2.encrypt(msg, "test");
+        dec = c2.decrypt(enc, "test");
+        assertEquals(msg, dec);
+        // The signers public key is loaded correctly from c2 // TODO
+        //assertEquals(signerKey1, signerKey2);
+    }
+
+    @Test
+    public void testImportExportGroup() throws GeneralSecurityException {
         Crypto c1 = new Crypto(null, "jsa".toCharArray(), true);
         Crypto c2 = new Crypto(null, "jsa".toCharArray(), true);
 
@@ -18,7 +43,7 @@ public class CryptoTest {
         System.out.println("Encrypted: " + enc);
         String dec = c2.decrypt(enc, "test");
 
-        Assert.assertEquals(msg, dec);
+        assertEquals(msg, dec);
     }
 
     @Test
@@ -30,7 +55,7 @@ public class CryptoTest {
         //System.out.println("Encrypted: " + enc);
         String dec = c1.decrypt(enc, "test");
 
-        Assert.assertEquals(msg, dec);
+        assertEquals(msg, dec);
     }
 
 

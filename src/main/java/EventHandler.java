@@ -3,9 +3,6 @@ import org.zeromq.ZContext;
 import org.zeromq.ZMQ;
 import sawtooth.sdk.protobuf.*;
 
-import java.security.GeneralSecurityException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.logging.Logger;
 
 class EventHandler {

@@ -1,7 +1,5 @@
 import com.google.protobuf.ByteString;
 import sawtooth.sdk.protobuf.*;
-import sawtooth.sdk.signing.PrivateKey;
-import sawtooth.sdk.signing.Secp256k1Context;
 import sawtooth.sdk.signing.Signer;
 
 import java.io.*;
@@ -21,9 +19,6 @@ import static sawtooth.sdk.processor.Utils.hash512;
 public class HyperZMQ {
     private Logger log = Logger.getLogger(HyperZMQ.class.getName());
 
-    private Secp256k1Context _context = new Secp256k1Context();
-    private PrivateKey _privateKey = _context.newRandomPrivateKey();
-    private Signer _signer = new Signer(_context, _privateKey);
     private static final Charset UTF8 = StandardCharsets.UTF_8;
     private EventHandler _eventHandler;
     private Map<String, List<SubscriptionCallback>> _callbacks = new HashMap<>();
@@ -33,14 +28,12 @@ public class HyperZMQ {
     public HyperZMQ(String id, String pathToKeyStore, String password, boolean createNewStore) {
         this._id = id;
         _crypto = new Crypto(this, pathToKeyStore, password.toCharArray(), createNewStore);
-
         _eventHandler = new EventHandler(this);
     }
 
     public HyperZMQ(String id, String password, boolean createNewStore) {
         this._id = id;
         _crypto = new Crypto(this, password.toCharArray(), createNewStore);
-
         _eventHandler = new EventHandler(this);
     }
 
@@ -69,20 +62,24 @@ public class HyperZMQ {
         byte[] payloadBytes = msg.toString().getBytes(UTF8);
 
         // Create Transaction Header
+        Signer signer = _crypto.getSigner();
+        if (signer == null) {
+            throw new IllegalStateException("No signer for the transaction, returning.");
+        }
         TransactionHeader header = TransactionHeader.newBuilder()
-                .setSignerPublicKey(_signer.getPublicKey().hex())
+                .setSignerPublicKey(signer.getPublicKey().hex())
                 .setFamilyName("csvstrings") // Has to be identical in TP
                 .setFamilyVersion("0.1")        // Has to be identical in TP
                 // TODO setting in/outputs increases security as it limits the read/write of the transaction processor
                 .addOutputs("2f9d35") // Set output as wildcard to our namespace
                 .addInputs("2f9d35")
                 .setPayloadSha512(hash512(payloadBytes))
-                .setBatcherPublicKey(_signer.getPublicKey().hex())
+                .setBatcherPublicKey(signer.getPublicKey().hex())
                 .setNonce(UUID.randomUUID().toString())
                 .build();
 
         // Create the Transaction
-        String signature = _signer.sign(header.toByteArray());
+        String signature = signer.sign(header.toByteArray());
 
         Transaction transaction = Transaction.newBuilder()
                 .setHeader(header.toByteString())
@@ -96,7 +93,7 @@ public class HyperZMQ {
         transactions.add(transaction);
 
         BatchHeader batchHeader = BatchHeader.newBuilder()
-                .setSignerPublicKey(_signer.getPublicKey().hex())
+                .setSignerPublicKey(signer.getPublicKey().hex())
                 .addAllTransactionIds(
                         transactions
                                 .stream()
@@ -107,7 +104,7 @@ public class HyperZMQ {
 
         // Create the Batch
         // The signature of the batch acts as the Batch's ID
-        String batchSignature = _signer.sign(batchHeader.toByteArray());
+        String batchSignature = signer.sign(batchHeader.toByteArray());
         Batch batch = Batch.newBuilder()
                 .setHeader(batchHeader.toByteString())
                 .addAllTransactions(transactions)

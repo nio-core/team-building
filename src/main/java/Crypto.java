@@ -1,13 +1,16 @@
-import javax.crypto.Cipher;
-import javax.crypto.KeyGenerator;
-import javax.crypto.SecretKey;
+import org.json.JSONObject;
+import sawtooth.sdk.signing.PrivateKey;
+import sawtooth.sdk.signing.Secp256k1Context;
+import sawtooth.sdk.signing.Signer;
+
+import javax.crypto.*;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.math.BigInteger;
 import java.security.*;
+import java.security.KeyStore.SecretKeyEntry;
 import java.security.cert.CertificateException;
 import java.util.*;
 import java.util.logging.Logger;
@@ -15,20 +18,25 @@ import java.util.logging.Logger;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class Crypto {
-    private Logger log = Logger.getLogger(getClass().getName());
-    private static final char[] HEX_ARRAY = "0123456789ABCDEF".toCharArray();
+
     private static final int KEY_LENGTH = 32; // in bytes = 256bit
+    private static final int GCM_TAG_SIZE_BITS = 128;
+    private static final int GCM_IV_SIZE_BYTES = 12;
     private static final String PKCS_12 = "pkcs12";
-    private static String DEFAULT_KEYSTORE_PATH = "keystore.jks";
+    private static final String DEFAULT_KEYSTORE_PATH = "keystore.jks";
+    public static final String DEFAULT_DATA_PATH = "data.dat";
+    private static final String DATA_ENCRYPTION_KEY_ALIAS = "data_encryption_key";
+    public static final String SAWTOOTHER_SIGNER_KEY = "sawtooth_signer_key";
+
+    private Logger log = Logger.getLogger(getClass().getName());
     private char[] _keyStorePass;
     private String _pathToKeyStore;
     private HyperZMQ _hyperZMQ;
-
-    private static final int KEY_SIZE_BITS = 128;
-    private static final int GCM_TAG_SIZE_BITS = 128;
-    private static final int GCM_IV_SIZE_BYTES = 12;
-
     private Map<String, SecretKey> _keys = new HashMap<>();
+    private SecretKey _dataEncryptionKey;
+    private Secp256k1Context _context;
+    private PrivateKey _privateKey;
+    private Signer _signer;
 
     /**
      * Create a instance which loads the KeyStore from the given path (which should include <filename>.jks.
@@ -42,10 +50,10 @@ public class Crypto {
         this._pathToKeyStore = keystorePath;
         this._hyperZMQ = hyperZMQ;
         if (createNew) {
-            createNewKeyStore();
+            createNewCryptoMaterial();
         } else {
             // load existing
-            loadKeyStore(keystorePath, password);
+            loadData(keystorePath, password);
         }
     }
 
@@ -59,11 +67,21 @@ public class Crypto {
         this(hyperZMQ, DEFAULT_KEYSTORE_PATH, password, createNew);
     }
 
-    private void createNewKeyStore() {
+    /**
+     * If no keystore is loaded, create a new keystore, new signing key and new data encryption key
+     */
+    private void createNewCryptoMaterial() {
         try {
             KeyStore ks = KeyStore.getInstance(PKCS_12);
             ks.load(null, _keyStorePass); // stream = null -> make a new one
 
+            // Generate a new signer for the Blockchain if nothing is loaded
+            // THIS EQUALS A NEW IDENTITY ON THE BLOCKHAIN !!!
+            _context = new Secp256k1Context();
+            _privateKey = _context.newRandomPrivateKey();
+            _signer = new Signer(_context, _privateKey);
+
+            _dataEncryptionKey = generateSecretKey();
             try (FileOutputStream fos = new FileOutputStream(_pathToKeyStore)) {
                 ks.store(fos, _keyStorePass);
             }
@@ -72,83 +90,26 @@ public class Crypto {
         }
     }
 
-    /* *//**
-     * Decode the given String in Base64, then decrypt the result using AES256 with the groups keys.
-     *
-     * @param groupName  groupName
-     * @param cipherText cipherText, which is a Base64 encoded String
-     * @return clearText or null upon error
-     *//*
-    public byte[] decrypt(String groupName, String cipherText) {
-        log.info("[DECRYPT] group " + groupName + " ciphertext: " + cipherText);
-
-        SecretKey key = _keys.get(groupName);
-        log.info("DECRYPT KEY: " + Base64.getEncoder().encodeToString(key.getEncoded()));
-        byte[] cipherTextBytes = cipherText.getBytes(UTF8);
-        //Base64.getDecoder().decode(cipherText);
-        GCMParameterSpec gcmParameterSpec = new GCMParameterSpec(128, cipherTextBytes, 0, 12);
-        byte[] cipherBytes = Arrays.copyOfRange(cipherTextBytes, IV_LENGTH, cipherTextBytes.length);
-
-        try {
-            Cipher cipher = Cipher.getInstance(CRYPT_ALGORITHM);
-            cipher.init(Cipher.DECRYPT_MODE, key, gcmParameterSpec);
-            cipher.update(cipherBytes);
-            byte[] decryptedBytes = cipher.doFinal(gcmParameterSpec.getIV());
-            return decryptedBytes;
-            //return new String(decryptedBytes, UTF8);
-        } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | InvalidAlgorithmParameterException | IllegalBlockSizeException | BadPaddingException e) {
-            e.printStackTrace();
-        }
-        return null;
+    private static byte[] generateRandomIV() {
+        byte[] iv = new byte[GCM_IV_SIZE_BYTES];
+        SecureRandom random = new SecureRandom();
+        random.nextBytes(iv);
+        return iv;
     }
 
-    */
-
-    /**
-     * Encrypts the clearText using AES256 with the groups key, then encodes the result as Base64
-     *
-     * @param
-     * @param
-     * @return encrypted text as Base64 String or null upon error
-     *//*
-    public String encrypt(String groupName, String clearText) {
-        //return encrypt(groupName, clearText.getBytes(UTF8));
-        byte[] clearTextBytes = clearText.getBytes(UTF8);
-        //Base64.getDecoder().decode(clearText);
-        SecretKey key = _keys.get(groupName);
-        log.info("ENCRYPT KEY: " + Base64.getEncoder().encodeToString(key.getEncoded()));
-
-        final byte[] iv = new byte[IV_LENGTH];
-        new SecureRandom().nextBytes(iv);
-        GCMParameterSpec gcmParameterSpec = new GCMParameterSpec(128, iv, 0, 12);
-
-        try {
-            Cipher cipher = Cipher.getInstance(CRYPT_ALGORITHM);
-            cipher.init(Cipher.ENCRYPT_MODE, key, gcmParameterSpec);
-            byte[] cipherText = cipher.doFinal(clearTextBytes);
-
-            byte[] combined = new byte[iv.length + cipherText.length];
-            System.arraycopy(iv, 0, combined, 0, iv.length);
-            System.arraycopy(cipherText, 0, combined, iv.length, cipherText.length);
-            return Base64.getEncoder().encodeToString(combined);
-        } catch (IllegalBlockSizeException | BadPaddingException | NoSuchAlgorithmException | InvalidKeyException | InvalidAlgorithmParameterException | NoSuchPaddingException e) {
-            e.printStackTrace();
-        }
-
-        return null;
-    }
-
-*/
-    SecretKey generateKey() throws NoSuchAlgorithmException {
-        SecureRandom random = SecureRandom.getInstanceStrong();
-        KeyGenerator keyGen = KeyGenerator.getInstance("AES");
-        keyGen.init(KEY_SIZE_BITS, random);
-        return keyGen.generateKey();
+    private SecretKey generateSecretKey() {
+        final byte[] raw = new byte[KEY_LENGTH];
+        new SecureRandom().nextBytes(raw);
+        return new SecretKeySpec(raw, "AES");
     }
 
     String encrypt(String plainText, String group) throws GeneralSecurityException, IllegalStateException {
         SecretKey key = _keys.get(group);
         if (key == null) throw new IllegalStateException("No key found for group=" + group);
+        return encrypt(plainText, key);
+    }
+
+    private String encrypt(String plainText, SecretKey key) throws GeneralSecurityException {
         Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
 
         byte[] iv = generateRandomIV();
@@ -165,22 +126,13 @@ public class Crypto {
         return Base64.getEncoder().encodeToString(ivCTAndTag);
     }
 
-    private static byte[] generateRandomIV() {
-        byte[] iv = new byte[GCM_IV_SIZE_BYTES];
-        SecureRandom random = new SecureRandom();
-        random.nextBytes(iv);
-        return iv;
-    }
-
-    private SecretKey generateSecretKey() {
-        final byte[] raw = new byte[KEY_LENGTH];
-        new SecureRandom().nextBytes(raw);
-        return new SecretKeySpec(raw, "AES");
-    }
-
     String decrypt(String encryptedText, String group) throws GeneralSecurityException, IllegalStateException {
         SecretKey key = _keys.get(group);
         if (key == null) throw new IllegalStateException("No key found for group=" + group);
+        return decrypt(encryptedText, key);
+    }
+
+    private String decrypt(String encryptedText, SecretKey key) throws GeneralSecurityException {
         Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
 
         byte[] ivAndCTWithTag = Base64.getDecoder().decode(encryptedText);
@@ -213,7 +165,7 @@ public class Crypto {
             throw new IllegalArgumentException("Name already in use");
         }
         _keys.put(name, generateSecretKey());
-        saveKeyStore();
+        saveData();
         //log.info("created group " + name + " with key (b64) " + Base64.getEncoder().encodeToString(_keys.get(name).getEncoded()));
     }
 
@@ -223,7 +175,7 @@ public class Crypto {
             throw new IllegalArgumentException("Key size is invalid! Expected 32, got " + keyBytes.length);
         }
         _keys.put(groupName, new SecretKeySpec(Base64.getDecoder().decode(key), "AES"));
-        saveKeyStore();
+        saveData();
         //log.info("Added group " + groupName + " with key (b64) " + Base64.getEncoder().encodeToString(_keys.get(groupName).getEncoded()));
     }
 
@@ -231,11 +183,11 @@ public class Crypto {
         _keys.remove(groupName);
     }
 
-    private void loadKeyStore(char[] password) {
-        loadKeyStore(DEFAULT_KEYSTORE_PATH, password);
+    private void loadData(char[] password) {
+        loadData(DEFAULT_KEYSTORE_PATH, password);
     }
 
-    private void loadKeyStore(String keystorePath, char[] password) {
+    private void loadData(String keystorePath, char[] password) {
         try {
             KeyStore ks = KeyStore.getInstance(PKCS_12);
             ks.load(new FileInputStream(keystorePath), password);
@@ -244,71 +196,67 @@ public class Crypto {
             KeyStore.PasswordProtection protParam = new KeyStore.PasswordProtection(pw);
 
             List<String> groupNames = Collections.list(ks.aliases());
-            for (String s : groupNames) {
+            for (String group : groupNames) {
                 try {
-                    SecretKey key = (SecretKey) ks.getKey(s, pw);
-                    // The groupName is the key alias
-                    _keys.put(s, key);
+                    SecretKey key = (SecretKey) ks.getKey(group, pw);
+                    _keys.put(group, key);
                 } catch (UnrecoverableEntryException e) {
                     e.printStackTrace();
                 }
             }
-        } catch (KeyStoreException | CertificateException | NoSuchAlgorithmException | IOException e) {
+
+            Key key = ks.getKey(DATA_ENCRYPTION_KEY_ALIAS, pw);
+            if (key != null) {
+                _dataEncryptionKey = (SecretKey) key;
+                // Load the data file if present
+            } else {
+                log.info("No data encryption key found - data cannot be loaded if there is any.");
+            }
+        } catch (KeyStoreException | CertificateException | NoSuchAlgorithmException | IOException | UnrecoverableKeyException e) {
             e.printStackTrace();
             throw new InternalError("Loading KeyStore failed with error: " + e.getLocalizedMessage());
         }
     }
 
-    private void saveKeyStore() throws InternalError {
+    private void saveData() throws InternalError {
         try {
             KeyStore ks = KeyStore.getInstance(PKCS_12);
             ks.load(null, _keyStorePass);
-            char[] pw = {'x'};
-            _keys.forEach((k, v) -> {
-                KeyStore.SecretKeyEntry entry = new KeyStore.SecretKeyEntry(v);
-                // TODO add even more passwords?
-                KeyStore.PasswordProtection protParam = new KeyStore.PasswordProtection(pw);
+            // TODO add even more passwords?
+            KeyStore.PasswordProtection protParam = new KeyStore.PasswordProtection(new char[]{'x'});
+            _keys.forEach((groupName, key) -> {
+                SecretKeyEntry entry = new SecretKeyEntry(key);
                 try {
-                    // The groupName is the key alias
-                    ks.setEntry(k, entry, protParam);
+                    ks.setEntry(groupName, entry, protParam);
                 } catch (KeyStoreException e) {
                     e.printStackTrace();
                 }
             });
 
+            ks.setEntry(DATA_ENCRYPTION_KEY_ALIAS, new SecretKeyEntry(_dataEncryptionKey), protParam);
+
             FileOutputStream fos = new FileOutputStream(DEFAULT_KEYSTORE_PATH);
             ks.store(fos, _keyStorePass);
         } catch (KeyStoreException | CertificateException | NoSuchAlgorithmException | IOException e) {
-            e.printStackTrace();
+            //e.printStackTrace();
             throw new InternalError("Saving the keystore failed with exception: " + e.getLocalizedMessage());
         }
-    }
 
-    public byte[] hexStringToByteArray(String hex) {
-        // Adding one byte to get the right conversion
-        // Values starting with "0" can be converted
-        byte[] bArray = new BigInteger("10" + hex, 16).toByteArray();
+        // Save all other data to the data file
+        JSONObject data = new JSONObject();
+        data.put(SAWTOOTHER_SIGNER_KEY, _signer.getPublicKey().hex());
+        // TODO put other data in sub object
 
-        // Copy all the REAL bytes, not the "first"
-        byte[] ret = new byte[bArray.length - 1];
-        for (int i = 0; i < ret.length; i++)
-            ret[i] = bArray[i + 1];
-        return ret;
-    }
-
-    public char[] byteArrayToHexChars(byte[] bytes) {
-        char[] hexChars = new char[bytes.length * 2];
-        for (int j = 0; j < bytes.length; j++) {
-            int v = bytes[j] & 0xFF;
-            hexChars[j * 2] = HEX_ARRAY[v >>> 4];
-            hexChars[j * 2 + 1] = HEX_ARRAY[v & 0x0F];
+        try {
+            String toWrite = encrypt(data.toString(), _dataEncryptionKey);
+        } catch (GeneralSecurityException e) {
+            //e.printStackTrace();
+            throw new InternalError("Saving the data failed with exception: " + e.getLocalizedMessage());
         }
-        return hexChars;
+
     }
 
-    public void clearCharArray(char[] ar) {
-        for (char c : ar) {
-            c = '0';
-        }
+    Signer getSigner() {
+        return _signer;
     }
 }

@@ -1,34 +1,29 @@
-import org.json.JSONObject;
+package client;
+
+import org.bitcoinj.core.Utils;
 import sawtooth.sdk.signing.PrivateKey;
 import sawtooth.sdk.signing.Secp256k1Context;
+import sawtooth.sdk.signing.Secp256k1PrivateKey;
 import sawtooth.sdk.signing.Signer;
 
-import javax.crypto.*;
+import javax.crypto.Cipher;
+import javax.crypto.SecretKey;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.security.*;
-import java.security.KeyStore.SecretKeyEntry;
-import java.security.cert.CertificateException;
+import java.security.GeneralSecurityException;
+import java.security.SecureRandom;
 import java.util.*;
 import java.util.logging.Logger;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-public class Crypto {
+class Crypto {
 
     private static final int KEY_LENGTH = 32; // in bytes = 256bit
     private static final int GCM_TAG_SIZE_BITS = 128;
     private static final int GCM_IV_SIZE_BYTES = 12;
-    private static final String PKCS_12 = "pkcs12";
-    private static final String DEFAULT_KEYSTORE_PATH = "keystore.jks";
-    public static final String DEFAULT_DATA_PATH = "data.dat";
-    private static final String DATA_ENCRYPTION_KEY_ALIAS = "data_encryption_key";
-    public static final String SAWTOOTHER_SIGNER_KEY = "sawtooth_signer_key";
 
-    private Logger log = Logger.getLogger(getClass().getName());
+    private Logger _log = Logger.getLogger(getClass().getName());
     private char[] _keyStorePass;
     private String _pathToKeyStore;
     private HyperZMQ _hyperZMQ;
@@ -37,6 +32,7 @@ public class Crypto {
     private Secp256k1Context _context;
     private PrivateKey _privateKey;
     private Signer _signer;
+    private Storage _storage;
 
     /**
      * Create a instance which loads the KeyStore from the given path (which should include <filename>.jks.
@@ -49,11 +45,11 @@ public class Crypto {
         this._keyStorePass = password;
         this._pathToKeyStore = keystorePath;
         this._hyperZMQ = hyperZMQ;
+        this._storage = new Storage(_pathToKeyStore, _keyStorePass, Storage.DEFAULT_DATA_PATH);
         if (createNew) {
             createNewCryptoMaterial();
         } else {
-            // load existing
-            loadData(keystorePath, password);
+            load();
         }
     }
 
@@ -64,30 +60,20 @@ public class Crypto {
      * @param createNew whether to create a new keystore
      */
     Crypto(HyperZMQ hyperZMQ, char[] password, boolean createNew) {
-        this(hyperZMQ, DEFAULT_KEYSTORE_PATH, password, createNew);
+        this(hyperZMQ, Storage.DEFAULT_KEYSTORE_PATH, password, createNew);
     }
 
     /**
-     * If no keystore is loaded, create a new keystore, new signing key and new data encryption key
+     * If no keystore is loaded, create a new keystore, signing key and data encryption key.
+     * Saves the data afterwards.
      */
     private void createNewCryptoMaterial() {
-        try {
-            KeyStore ks = KeyStore.getInstance(PKCS_12);
-            ks.load(null, _keyStorePass); // stream = null -> make a new one
+        _context = new Secp256k1Context();
+        _privateKey = _context.newRandomPrivateKey();
+        _signer = new Signer(_context, _privateKey);
 
-            // Generate a new signer for the Blockchain if nothing is loaded
-            // THIS EQUALS A NEW IDENTITY ON THE BLOCKHAIN !!!
-            _context = new Secp256k1Context();
-            _privateKey = _context.newRandomPrivateKey();
-            _signer = new Signer(_context, _privateKey);
-
-            _dataEncryptionKey = generateSecretKey();
-            try (FileOutputStream fos = new FileOutputStream(_pathToKeyStore)) {
-                ks.store(fos, _keyStorePass);
-            }
-        } catch (KeyStoreException | CertificateException | NoSuchAlgorithmException | IOException e) {
-            e.printStackTrace();
-        }
+        _dataEncryptionKey = generateSecretKey();
+        save();
     }
 
     private static byte[] generateRandomIV() {
@@ -109,7 +95,7 @@ public class Crypto {
         return encrypt(plainText, key);
     }
 
-    private String encrypt(String plainText, SecretKey key) throws GeneralSecurityException {
+    static String encrypt(String plainText, SecretKey key) throws GeneralSecurityException {
         Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
 
         byte[] iv = generateRandomIV();
@@ -132,7 +118,7 @@ public class Crypto {
         return decrypt(encryptedText, key);
     }
 
-    private String decrypt(String encryptedText, SecretKey key) throws GeneralSecurityException {
+    static String decrypt(String encryptedText, SecretKey key) throws GeneralSecurityException {
         Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
 
         byte[] ivAndCTWithTag = Base64.getDecoder().decode(encryptedText);
@@ -165,7 +151,7 @@ public class Crypto {
             throw new IllegalArgumentException("Name already in use");
         }
         _keys.put(name, generateSecretKey());
-        saveData();
+        save();
         //log.info("created group " + name + " with key (b64) " + Base64.getEncoder().encodeToString(_keys.get(name).getEncoded()));
     }
 
@@ -175,7 +161,7 @@ public class Crypto {
             throw new IllegalArgumentException("Key size is invalid! Expected 32, got " + keyBytes.length);
         }
         _keys.put(groupName, new SecretKeySpec(Base64.getDecoder().decode(key), "AES"));
-        saveData();
+        save();
         //log.info("Added group " + groupName + " with key (b64) " + Base64.getEncoder().encodeToString(_keys.get(groupName).getEncoded()));
     }
 
@@ -183,77 +169,20 @@ public class Crypto {
         _keys.remove(groupName);
     }
 
-    private void loadData(char[] password) {
-        loadData(DEFAULT_KEYSTORE_PATH, password);
+    private void save() {
+        Map<String, String> dataMap = new HashMap<>();
+        dataMap.put(Storage.SAWTOOTHER_SIGNER_KEY, _privateKey.hex());
+        _keys.put(Storage.DATA_ENCRYPTION_KEY_ALIAS, _dataEncryptionKey);
+        _storage.saveData(new Data(_keys, dataMap));
     }
 
-    private void loadData(String keystorePath, char[] password) {
-        try {
-            KeyStore ks = KeyStore.getInstance(PKCS_12);
-            ks.load(new FileInputStream(keystorePath), password);
-            char[] pw = {'x'};
-            // TODO add even more passwords?
-            KeyStore.PasswordProtection protParam = new KeyStore.PasswordProtection(pw);
-
-            List<String> groupNames = Collections.list(ks.aliases());
-            for (String group : groupNames) {
-                try {
-                    SecretKey key = (SecretKey) ks.getKey(group, pw);
-                    _keys.put(group, key);
-                } catch (UnrecoverableEntryException e) {
-                    e.printStackTrace();
-                }
-            }
-
-            Key key = ks.getKey(DATA_ENCRYPTION_KEY_ALIAS, pw);
-            if (key != null) {
-                _dataEncryptionKey = (SecretKey) key;
-                // Load the data file if present
-            } else {
-                log.info("No data encryption key found - data cannot be loaded if there is any.");
-            }
-        } catch (KeyStoreException | CertificateException | NoSuchAlgorithmException | IOException | UnrecoverableKeyException e) {
-            e.printStackTrace();
-            throw new InternalError("Loading KeyStore failed with error: " + e.getLocalizedMessage());
-        }
-    }
-
-    private void saveData() throws InternalError {
-        try {
-            KeyStore ks = KeyStore.getInstance(PKCS_12);
-            ks.load(null, _keyStorePass);
-            // TODO add even more passwords?
-            KeyStore.PasswordProtection protParam = new KeyStore.PasswordProtection(new char[]{'x'});
-            _keys.forEach((groupName, key) -> {
-                SecretKeyEntry entry = new SecretKeyEntry(key);
-                try {
-                    ks.setEntry(groupName, entry, protParam);
-                } catch (KeyStoreException e) {
-                    e.printStackTrace();
-                }
-            });
-
-            ks.setEntry(DATA_ENCRYPTION_KEY_ALIAS, new SecretKeyEntry(_dataEncryptionKey), protParam);
-
-            FileOutputStream fos = new FileOutputStream(DEFAULT_KEYSTORE_PATH);
-            ks.store(fos, _keyStorePass);
-        } catch (KeyStoreException | CertificateException | NoSuchAlgorithmException | IOException e) {
-            //e.printStackTrace();
-            throw new InternalError("Saving the keystore failed with exception: " + e.getLocalizedMessage());
-        }
-
-        // Save all other data to the data file
-        JSONObject data = new JSONObject();
-        data.put(SAWTOOTHER_SIGNER_KEY, _signer.getPublicKey().hex());
-        // TODO put other data in sub object
-
-        try {
-            String toWrite = encrypt(data.toString(), _dataEncryptionKey);
-        } catch (GeneralSecurityException e) {
-            //e.printStackTrace();
-            throw new InternalError("Saving the data failed with exception: " + e.getLocalizedMessage());
-        }
-
+    private void load() {
+        Data data = _storage.loadData();
+        _dataEncryptionKey = data.keys.remove(Storage.DATA_ENCRYPTION_KEY_ALIAS);
+        _keys = data.keys;
+        _context = new Secp256k1Context();
+        PrivateKey key = new Secp256k1PrivateKey(Utils.HEX.decode(data.getSigningKeyHex()));
+        _signer = new Signer(_context, key);
     }
 
     Signer getSigner() {

@@ -1,7 +1,13 @@
+package client;
+
 import org.junit.Test;
+import txprocessor.CSVStringsTP;
 
 import static org.junit.Assert.assertEquals;
 
+/**
+ * -Djava.util.logging.SimpleFormatter.format="%1$tY-%1$tm-%1$td %1$tH:%1$tM:%1$tS %4$s %2$s %5$s%6$s%n"
+ */
 public class HyperZMQTest {
 
     final static String TESTGROUP = "testGroup";

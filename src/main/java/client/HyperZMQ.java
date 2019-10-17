@@ -1,3 +1,5 @@
+package client;
+
 import com.google.protobuf.ByteString;
 import sawtooth.sdk.protobuf.*;
 import sawtooth.sdk.signing.Signer;
@@ -17,7 +19,7 @@ import java.util.stream.Stream;
 import static sawtooth.sdk.processor.Utils.hash512;
 
 public class HyperZMQ {
-    private Logger log = Logger.getLogger(HyperZMQ.class.getName());
+    private Logger _log = Logger.getLogger(HyperZMQ.class.getName());
 
     private static final Charset UTF8 = StandardCharsets.UTF_8;
     private EventHandler _eventHandler;
@@ -40,7 +42,7 @@ public class HyperZMQ {
     public void sendMessageToChain(String group, String message) {
         //TODO
         if (group == null || message == null || group.isEmpty() || message.isEmpty()) {
-            log.warning("Empty group and/or message!");
+            _log.warning("Empty group and/or message!");
             return;
         }
 
@@ -53,10 +55,10 @@ public class HyperZMQ {
             msg.append(_crypto.encrypt(message, group));
         } catch (GeneralSecurityException e) {
             e.printStackTrace();
-            log.info("Message will not be send.");
+            _log.info("Message will not be send.");
             return;
         } catch (IllegalStateException e) {
-            log.info("Trying to encrypt for group for which the key is not present (" + group + "). Message will not be send.");
+            _log.info("Trying to encrypt for group for which the key is not present (" + group + "). Message will not be send.");
             return;
         }
         byte[] payloadBytes = msg.toString().getBytes(UTF8);
@@ -125,7 +127,7 @@ public class HyperZMQ {
     }
 
     private void sendBatchList(byte[] body) throws IOException {
-        log.info("Sending batchlist to http://localhost:8008/batches");
+        _log.info("Sending batchlist to http://localhost:8008/batches");
         URL url = new URL("http://localhost:8008/batches");
         URLConnection con = url.openConnection();
         HttpURLConnection http = (HttpURLConnection) con;
@@ -147,7 +149,7 @@ public class HyperZMQ {
         }
 
         if (response != null) {
-            log.info(response);
+            _log.info(response);
         }
     }
 
@@ -197,7 +199,7 @@ public class HyperZMQ {
     }
 
     /**
-     * Receives the message from the EventHandler. The message is not decrypted yet.
+     * Receives the message from the client.EventHandler. The message is not decrypted yet.
      *
      * @param group   group name
      * @param message encrypted message
@@ -205,35 +207,35 @@ public class HyperZMQ {
     void newMessage(String group, String message) {
         try {
             String plaintext = _crypto.decrypt(message, group);
-            log.info("New message in group '" + group + "': " + plaintext);
+            _log.info("New message in group '" + group + "': " + plaintext);
             // Send the message to all subscribers of that group
             List<SubscriptionCallback> list = _callbacks.get(group);
             if (list != null) {
-                log.info("Callback(s) found for the group...");
+                _log.info("Callback(s) found for the group...");
                 list.forEach(c -> c.newMessageOnChain(group, plaintext));
             }
         } catch (GeneralSecurityException e) {
             e.printStackTrace();
         } catch (IllegalStateException e) {
-            log.info("Received a message in a group for which a key is not present. (" + group + "," + message + ")");
+            _log.info("Received a message in a group for which a key is not present. (" + group + "," + message + ")");
         }
     }
 
     private void subscribe(String groupName, SubscriptionCallback callback) {
-        log.info("New subscription for group: " + groupName);
+        _log.info("New subscription for group: " + groupName);
         if (_callbacks.containsKey(groupName)) {
             List<SubscriptionCallback> list = _callbacks.get(groupName);
             if (list.contains(callback)) {
-                log.info("Subscription skipped, callback already registered.");
+                _log.info("Subscription skipped, callback already registered.");
             } else {
                 list.add(callback);
-                log.info("Subscription completed, callback registered to existing group.");
+                _log.info("Subscription completed, callback registered to existing group.");
             }
         } else {
             List<SubscriptionCallback> newList = new ArrayList<>();
             newList.add(callback);
             _callbacks.put(groupName, newList);
-            log.info("Subscription completed, new group created.");
+            _log.info("Subscription completed, new group created.");
         }
     }
 }

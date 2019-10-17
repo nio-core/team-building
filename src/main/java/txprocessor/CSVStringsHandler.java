@@ -1,3 +1,5 @@
+package txprocessor;
+
 import com.google.protobuf.ByteString;
 import sawtooth.sdk.processor.Context;
 import sawtooth.sdk.processor.TransactionHandler;

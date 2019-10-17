@@ -1,3 +1,5 @@
+package client;
+
 import org.junit.Test;
 
 import java.io.IOException;
@@ -5,6 +7,9 @@ import java.security.GeneralSecurityException;
 
 import static org.junit.Assert.*;
 
+/**
+ * -Djava.util.logging.SimpleFormatter.format="%1$tY-%1$tm-%1$td %1$tH:%1$tM:%1$tS %4$s %2$s %5$s%6$s%n"
+ */
 public class CryptoTest {
 
     @Test
@@ -28,7 +33,7 @@ public class CryptoTest {
         dec = c2.decrypt(enc, "test");
         assertEquals(msg, dec);
         // The signers public key is loaded correctly from c2 // TODO
-        //assertEquals(signerKey1, signerKey2);
+        assertEquals(signerKey1, signerKey2);
     }
 
     @Test

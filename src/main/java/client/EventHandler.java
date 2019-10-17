@@ -1,17 +1,17 @@
+package client;
+
 import com.google.protobuf.InvalidProtocolBufferException;
 import org.zeromq.ZContext;
 import org.zeromq.ZMQ;
 import sawtooth.sdk.protobuf.*;
 
-import java.security.GeneralSecurityException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.logging.Logger;
+
 
 class EventHandler {
     private final HyperZMQ _hyperzmq;
     private boolean _runEventReceiver = true;
-    private Logger log = Logger.getLogger(EventHandler.class.getName());
+    private Logger _log = Logger.getLogger(EventHandler.class.getName());
 
     EventHandler(HyperZMQ callback) {
         this._hyperzmq = callback;
@@ -22,7 +22,7 @@ class EventHandler {
      * Connect to the event subsystem. If successful, start a thread which receives events.
      */
     private void subscribe() {
-        log.info("Subscribing...");
+        _log.info("Subscribing...");
         EventFilter eventFilter = EventFilter.newBuilder()
                 .setKey("address")
                 .setMatchString("2f9d35*")
@@ -61,7 +61,7 @@ class EventHandler {
             e.printStackTrace();
         }
         if (respMsg == null || respMsg.getMessageType() != Message.MessageType.CLIENT_EVENTS_SUBSCRIBE_RESPONSE) {
-            log.info("Response was no subscription response");
+            _log.info("Response was no subscription response");
             return;
         }
         ClientEventsSubscribeResponse cesr = null;
@@ -71,11 +71,11 @@ class EventHandler {
             e.printStackTrace();
         }
         if (cesr == null) {
-            log.info("cesr null");
+            _log.info("cesr null");
             return;
         }
         if (cesr.getStatus() != ClientEventsSubscribeResponse.Status.OK) {
-            log.info("Subscribing failed: " + cesr.getResponseMessage());
+            _log.info("Subscribing failed: " + cesr.getResponseMessage());
             return;
         }
 
@@ -92,31 +92,31 @@ class EventHandler {
      * @param socket socket on which events are received
      */
     private void receiveEvents(ZMQ.Socket socket) {
-        log.info("Starting to listen to events...");
+        _log.info("Starting to listen to events...");
         while (_runEventReceiver) {
             byte[] recv = socket.recv();
             try {
                 Message msg = Message.parseFrom(recv);
                 if (msg.getMessageType() != Message.MessageType.CLIENT_EVENTS) {
-                    log.info("received event message is not of type event!");
+                    _log.info("received event message is not of type event!");
                 }
 
                 EventList list = EventList.parseFrom(msg.getContent());
                 for (Event e : list.getEventsList()) {
                     String received = e.toString();
-                    log.info("[Event] received deserialized: " + received);
+                    _log.info("[Event] received deserialized: " + received);
 
                     String fullMessage = received.substring(received.indexOf("data"));
-                    log.info("fullMessage: " + fullMessage);
+                    _log.info("fullMessage: " + fullMessage);
 
                     String csvMessage = fullMessage.substring(7, fullMessage.length() - 2); //TODO
-                    log.info("csvMessage: " + csvMessage);
+                    _log.info("csvMessage: " + csvMessage);
 
                     String[] parts = csvMessage.split(",");
                     String group = parts[0];
                     String encMessage = parts[1];
-                    log.info("Group: " + group);
-                    log.info("Encrypted Message: " + encMessage);
+                    _log.info("Group: " + group);
+                    _log.info("Encrypted Message: " + encMessage);
 
                     _hyperzmq.newMessage(group, encMessage);
                 }

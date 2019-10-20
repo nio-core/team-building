@@ -43,9 +43,9 @@ class EventHandler {
                 .addSubscriptions(subscription)
                 .build();
 
-        Message message = Message.newBuilder()
+        sawtooth.sdk.protobuf.Message message = sawtooth.sdk.protobuf.Message.newBuilder()
                 .setCorrelationId("123")
-                .setMessageType(Message.MessageType.CLIENT_EVENTS_SUBSCRIBE_REQUEST)
+                .setMessageType(sawtooth.sdk.protobuf.Message.MessageType.CLIENT_EVENTS_SUBSCRIBE_REQUEST)
                 .setContent(request.toByteString())
                 .build();
 
@@ -53,14 +53,14 @@ class EventHandler {
         socket.send(message.toByteArray());
 
         byte[] responseBytes = socket.recv();
-        Message respMsg = null;
+        sawtooth.sdk.protobuf.Message respMsg = null;
         try {
-            respMsg = Message.parseFrom(responseBytes);
+            respMsg = sawtooth.sdk.protobuf.Message.parseFrom(responseBytes);
             //log.info("Response deserialized: " + respMsg.toString());
         } catch (InvalidProtocolBufferException e) {
             e.printStackTrace();
         }
-        if (respMsg == null || respMsg.getMessageType() != Message.MessageType.CLIENT_EVENTS_SUBSCRIBE_RESPONSE) {
+        if (respMsg == null || respMsg.getMessageType() != sawtooth.sdk.protobuf.Message.MessageType.CLIENT_EVENTS_SUBSCRIBE_RESPONSE) {
             _log.info("Response was no subscription response");
             return;
         }
@@ -115,7 +115,9 @@ class EventHandler {
                     String[] parts = csvMessage.split(",");
                     String group = parts[0];
                     String encMessage = parts[1];
+                    String senderID = parts[2];
                     _log.info("Group: " + group);
+                    _log.info("Encrypted Sender: " + senderID);
                     _log.info("Encrypted Message: " + encMessage);
 
                     _hyperzmq.newMessage(group, encMessage);

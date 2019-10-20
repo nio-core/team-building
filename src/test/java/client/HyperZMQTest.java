@@ -21,7 +21,7 @@ public class HyperZMQTest {
         HyperZMQ hzmq2 = new HyperZMQ("testID2", "drowssap", true);
         HyperZMQ hzmqFailure = new HyperZMQ("testID2", "testtset", true);
 
-        hzmq1.createGroup(TESTGROUP, (group, message) -> {
+        /*hzmq1.createGroup(TESTGROUP, (group, message) -> {
             System.out.println("[Client 1] received: " + group + " " + message);
 
             assertEquals("testGroup", group);
@@ -31,12 +31,12 @@ public class HyperZMQTest {
         String key = hzmq1.getKeyForGroup(TESTGROUP);
         hzmq2.addGroup(TESTGROUP, key);
         // The client receives its own messages because it subscribed to the group
-        /* hzmq1.subscribe(TESTGROUP, ((group, message) -> {
+        *//* hzmq1.subscribe(TESTGROUP, ((group, message) -> {
             System.out.println("[Client 1] received: " + group + " " + message);
 
             assertEquals("testGroup", group);
             assertEquals("testMessage", message);
-        })); */
+        })); *//*
         // The other client receives the (encrypted) messages too because it has the key for the group
         // and subscribed to the group
         hzmq2.addCallbackToGroup(TESTGROUP, (group, message) -> {
@@ -51,7 +51,7 @@ public class HyperZMQTest {
         }));
 
         hzmq1.sendMessageToChain(TESTGROUP, "testMessage");
-
+*/
         sleep(3000);
     }
 

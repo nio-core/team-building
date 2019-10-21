@@ -22,7 +22,7 @@ class EventHandler {
      * Connect to the event subsystem. If successful, start a thread which receives events.
      */
     private void subscribe() {
-        _log.info("Subscribing...");
+        //_log.info("Subscribing...");
         EventFilter eventFilter = EventFilter.newBuilder()
                 .setKey("address")
                 .setMatchString("2f9d35*")
@@ -49,14 +49,14 @@ class EventHandler {
                 .setContent(request.toByteString())
                 .build();
 
-        //log.info("Sending subscription request...");
+        //_log.info("Sending subscription request...");
         socket.send(message.toByteArray());
 
         byte[] responseBytes = socket.recv();
         sawtooth.sdk.protobuf.Message respMsg = null;
         try {
             respMsg = sawtooth.sdk.protobuf.Message.parseFrom(responseBytes);
-            //log.info("Response deserialized: " + respMsg.toString());
+            //_log.info("Response deserialized: " + respMsg.toString());
         } catch (InvalidProtocolBufferException e) {
             e.printStackTrace();
         }
@@ -92,7 +92,7 @@ class EventHandler {
      * @param socket socket on which events are received
      */
     private void receiveEvents(ZMQ.Socket socket) {
-        _log.info("Starting to listen to events...");
+        //_log.info("Starting to listen to events...");
         while (_runEventReceiver) {
             byte[] recv = socket.recv();
             try {
@@ -104,23 +104,21 @@ class EventHandler {
                 EventList list = EventList.parseFrom(msg.getContent());
                 for (Event e : list.getEventsList()) {
                     String received = e.toString();
-                    _log.info("[Event] received deserialized: " + received);
+                    //_log.info("[Event] received deserialized: " + received);
 
                     String fullMessage = received.substring(received.indexOf("data"));
-                    _log.info("fullMessage: " + fullMessage);
+                    //_log.info("fullMessage: " + fullMessage);
 
                     String csvMessage = fullMessage.substring(7, fullMessage.length() - 2); //TODO
-                    _log.info("csvMessage: " + csvMessage);
+                    //_log.info("csvMessage: " + csvMessage);
 
                     String[] parts = csvMessage.split(",");
                     String group = parts[0];
                     String encMessage = parts[1];
-                    String senderID = parts[2];
-                    _log.info("Group: " + group);
-                    _log.info("Encrypted Sender: " + senderID);
-                    _log.info("Encrypted Message: " + encMessage);
+                    //_log.info("Group: " + group);
+                    //_log.info("Encrypted Message: " + encMessage);
 
-                    _hyperzmq.newMessage(group, encMessage);
+                    _hyperzmq.newEventReceived(group, encMessage);
                 }
             } catch (InvalidProtocolBufferException e) {
                 e.printStackTrace();

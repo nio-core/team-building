@@ -7,7 +7,10 @@ import javax.crypto.SecretKey;
 import java.io.*;
 import java.security.*;
 import java.security.cert.CertificateException;
-import java.util.*;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
@@ -61,8 +64,7 @@ class Storage {
             throw new InternalError("Data encryption key is null, cannot proceed.");
         }
         JSONObject jsonObject = new JSONObject(data);
-        //data.put(SAWTOOTHER_SIGNER_KEY, _signer.getPublicKey().hex());
-        System.out.println("String to write;:" + jsonObject.toString());
+        //System.out.println("String to write:" + jsonObject.toString());
         String toWrite;
         try {
             toWrite = Crypto.encrypt(jsonObject.toString(), _dataEncryptionKey);
@@ -117,7 +119,7 @@ class Storage {
             });
 
             ks.setEntry(DATA_ENCRYPTION_KEY_ALIAS, new KeyStore.SecretKeyEntry(_dataEncryptionKey), protParam);
-            System.out.println("saved data enc key as : " + Base64.getEncoder().encodeToString(_dataEncryptionKey.getEncoded()));
+            //System.out.println("saved data enc key as: " + Base64.getEncoder().encodeToString(_dataEncryptionKey.getEncoded()));
             FileOutputStream fos = new FileOutputStream(DEFAULT_KEYSTORE_PATH);
             ks.store(fos, _keystorePassword);
         } catch (KeyStoreException | CertificateException | NoSuchAlgorithmException | IOException e) {
@@ -151,10 +153,8 @@ class Storage {
         if (key == null) {
             throw new InternalError("client.Data Encryption Key could not be loaded");
         }
-
         _dataEncryptionKey = key;
-        System.out.println("Loaded data enc key as: " + Base64.getEncoder().encodeToString(_dataEncryptionKey.getEncoded()));
-
+        //System.out.println("Loaded data enc key as: " + Base64.getEncoder().encodeToString(_dataEncryptionKey.getEncoded()));
         return ret;
     }
 }

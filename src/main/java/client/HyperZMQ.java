@@ -19,7 +19,8 @@ import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static java.nio.charset.StandardCharsets.*;
+import static client.Envelope.*;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static sawtooth.sdk.processor.Utils.hash512;
 
 public class HyperZMQ {
@@ -29,21 +30,22 @@ public class HyperZMQ {
     private Crypto _crypto;
     private String _id;
     private List<ContractProcessor> _contractProcessors = new ArrayList<>();
-    private Map<String, List<SubscriptionCallback>> _callbacks = new HashMap<>();
+    private Map<String, List<SubscriptionCallback>> _textmessageCallbacks = new HashMap<>();
+    private Map<String, ContractProcessingCallback> _contractCallbacks = new HashMap<>(); // key is the contractID
 
-    public HyperZMQ(String id, String pathToKeyStore, String password, boolean createNewStore) {
+    public HyperZMQ(String id, String pathToKeyStore, String keystorePassword, boolean createNewStore) {
         this._id = id;
-        _crypto = new Crypto(this, pathToKeyStore, password.toCharArray(), createNewStore);
+        _crypto = new Crypto(this, pathToKeyStore, keystorePassword.toCharArray(), createNewStore);
         _eventHandler = new EventHandler(this);
     }
 
-    public HyperZMQ(String id, String password, boolean createNewStore) {
+    public HyperZMQ(String id, String keystorePassword, boolean createNewStore) {
         this._id = id;
-        _crypto = new Crypto(this, password.toCharArray(), createNewStore);
+        _crypto = new Crypto(this, keystorePassword.toCharArray(), createNewStore);
         _eventHandler = new EventHandler(this);
     }
 
-    public void sendMessageToChain(String group, Envelope envelope) {
+    private void sendToChain(String group, Envelope envelope) {
         // Create the payload in CSV format
         // The group stays in clearText so clients attempting to decrypt can know if they can without trial and error
         StringBuilder msgBuilder = new StringBuilder();
@@ -124,15 +126,41 @@ public class HyperZMQ {
         }
     }
 
-    public void sendMessageToChain(String group, String message, String messageType) {
-        //TODO
+    public void sendTextToChain(String group, String message) {
         if (group == null || message == null || group.isEmpty() || message.isEmpty()) {
             _log.warning("Empty group and/or message!");
             return;
         }
-        // Wrap the message in json and add the sender
-        Envelope envelope = new Envelope(_id, messageType, message);
-        sendMessageToChain(group, envelope);
+        // Wrap the message - the complete envelope will be encrypted
+        Envelope envelope = new Envelope(_id, MESSAGETYPE_TEXT, message);
+        sendToChain(group, envelope);
+    }
+
+    public void sendContractToChain(String groupName, Contract contract, ContractProcessingCallback callback) {
+        if (callback != null) {
+            _contractCallbacks.put(contract.getContractID(), callback);
+        }
+        sendContractToChain(groupName, contract);
+    }
+
+    public void sendContractToChain(String groupName, Contract contract) {
+        if (groupName == null || contract == null) {
+            _log.warning("Empty group and/or contract!");
+            return;
+        }
+        // Wrap the contract - the complete envelope will be encrypted
+        Envelope envelope = new Envelope(_id, MESSAGETYPE_CONTRACT, contract.toString());
+        sendToChain(groupName, envelope);
+    }
+
+    private void sendReceiptToChain(String groupName, ContractReceipt receipt) {
+        if (groupName == null || receipt == null) {
+            _log.warning("Empty group and/or receipt!");
+            return;
+        }
+
+        Envelope envelope = new Envelope(_id, MESSAGETYPE_CONTRACT_RECEIPT, receipt.toString());
+        sendToChain(groupName, envelope);
     }
 
     public void addContractProcessor(ContractProcessor contractProcessor) {
@@ -146,7 +174,7 @@ public class HyperZMQ {
     public void createGroup(String groupName, SubscriptionCallback callback) {
         _crypto.createGroup(groupName);
         if (callback != null) {
-            subscribe(groupName, callback);
+            putCallback(groupName, callback);
         }
     }
 
@@ -157,7 +185,7 @@ public class HyperZMQ {
     public void addGroup(String groupName, String key, SubscriptionCallback callback) {
         _crypto.addGroup(groupName, key);
         if (callback != null) {
-            subscribe(groupName, callback);
+            putCallback(groupName, callback);
         }
     }
 
@@ -166,7 +194,7 @@ public class HyperZMQ {
     }
 
     public void addCallbackToGroup(String groupName, SubscriptionCallback callback) {
-        subscribe(groupName, callback);
+        putCallback(groupName, callback);
     }
 
     /**
@@ -177,7 +205,7 @@ public class HyperZMQ {
     public void removeGroup(String groupName) {
         _crypto.removeGroup(groupName);
         // TODO
-        _callbacks.remove(groupName);
+        _textmessageCallbacks.remove(groupName);
     }
 
     public List<String> getGroupNames() {
@@ -194,31 +222,30 @@ public class HyperZMQ {
      * @param group            group name
      * @param encryptedMessage encrypted message
      */
-    void newMessage(String group, String encryptedMessage) {
+    void newEventReceived(String group, String encryptedMessage) {
         String plainMessage;
         try {
             plainMessage = _crypto.decrypt(encryptedMessage, group);
-            _log.info("New message in group '" + group + "': " + plainMessage);
-
+            //_log.info("New message in group '" + group + "': " + plainMessage);
         } catch (GeneralSecurityException e) {
             e.printStackTrace();
             return;
         } catch (IllegalStateException e) {
-            _log.info("Received a message in a group for which a key is not present. (" + group + "," + encryptedMessage + ")");
+            _log.info("Received a message in a group for which a key is not present. Message: (" + group + "," + encryptedMessage + ")");
             return;
         }
         Envelope envelope = new Gson().fromJson(plainMessage, Envelope.class);
         // TODO
         switch (envelope.getType()) {
-            case Envelope.TYPE_CONTRACT: {
+            case MESSAGETYPE_CONTRACT: {
                 handleContractMessage(group, envelope);
                 break;
             }
-            case Envelope.TYPE_TEXT: {
+            case MESSAGETYPE_TEXT: {
                 handleTextMessage(group, envelope);
                 break;
             }
-            case Envelope.TYPE_CONTRACT_RECEIPT: {
+            case MESSAGETYPE_CONTRACT_RECEIPT: {
                 handleContractReceipt(group, envelope);
                 break;
             }
@@ -229,10 +256,21 @@ public class HyperZMQ {
     }
 
     private void handleContractReceipt(String group, Envelope envelope) {
-        // TODO
+        ContractReceipt receipt;
+        try {
+            receipt = new Gson().fromJson(envelope.getRawMessage(), ContractReceipt.class);
+        } catch (JsonSyntaxException e) {
+            _log.warning("Cannot convert to ContractReceipt: " + envelope.getRawMessage());
+            return;
+        }
+        ContractProcessingCallback cb = _contractCallbacks.get(receipt.getContract().getContractID());
+        if (cb != null) {
+            cb.processingFinished(receipt);
+        }
     }
 
     private void handleContractMessage(String group, Envelope envelope) {
+        // TODO ASYNC THIS?
         Contract contract;
         try {
             contract = new Gson().fromJson(envelope.getRawMessage(), Contract.class);
@@ -240,57 +278,65 @@ public class HyperZMQ {
             _log.info("Could not extract contract from envelope: " + envelope.toString());
             return;
         }
-
-        // Find a processor to handle the message
-        Object result = null;
-        for (ContractProcessor processor : _contractProcessors) {
-            result = processor.processContract(contract);
-            if (result != null) {
-                break;
+        if (_id.equals(contract.getRequestedProcessor()) || Contract.REQUESTED_PROCESSOR_ANY.equals(contract.getRequestedProcessor())) {
+            // Find a processor to handle the message
+            Object result = null;
+            for (ContractProcessor processor : _contractProcessors) {
+                result = processor.processContract(contract);
+                if (result != null) {
+                    break;
+                }
             }
-        }
-        if (result == null) {
-            _log.info("No processor found for contract: " + contract.toString());
-        }
-        // Process the result
-        // TODO
-        if (result instanceof Integer) {
-            int intResult = (int) result;
+            if (result == null) {
+                _log.info("No processor found for contract: " + contract.toString());
+                return;
+            }
+            // Process the result
+            // TODO
+            if (result instanceof Integer) {
+                int intResult = (int) result;
+            }
+            //_log.info("Contract processed with result: " + result);
+
+            // Build a result to send back
+            ContractReceipt receipt = new ContractReceipt(_id, String.valueOf(result), contract);
+            sendReceiptToChain(group, receipt);
+        } else {
+            //_log.info("Contract was not for this client:" + contract);
         }
 
-        // Build a result to send back
-        ContractReceipt receipt = new ContractReceipt(_id, String.valueOf(result), contract);
     }
+
 
     private void handleTextMessage(String group, Envelope envelope) {
         // Send the message to all subscribers of that group
-        List<SubscriptionCallback> list = _callbacks.get(group);
+        List<SubscriptionCallback> list = _textmessageCallbacks.get(group);
         if (list != null) {
             //_log.info("Callback(s) found for the group...");
             list.forEach(c -> c.newMessageOnChain(group, envelope.getRawMessage(), envelope.getSender()));
         }
     }
 
-    private void subscribe(String groupName, SubscriptionCallback callback) {
-        _log.info("New subscription for group: " + groupName);
-        if (_callbacks.containsKey(groupName)) {
-            List<SubscriptionCallback> list = _callbacks.get(groupName);
+    private void putCallback(String groupName, SubscriptionCallback callback) {
+        //_log.info("New subscription for group: " + groupName);
+        if (_textmessageCallbacks.containsKey(groupName)) {
+            List<SubscriptionCallback> list = _textmessageCallbacks.get(groupName);
             if (list.contains(callback)) {
-                _log.info("Subscription skipped, callback already registered.");
+                //_log.info("Subscription skipped, callback already registered.");
             } else {
                 list.add(callback);
-                _log.info("Subscription completed, callback registered to existing group.");
+                //_log.info("Subscription completed, callback registered to existing group.");
             }
         } else {
             List<SubscriptionCallback> newList = new ArrayList<>();
             newList.add(callback);
-            _callbacks.put(groupName, newList);
-            _log.info("Subscription completed, new group created.");
+            _textmessageCallbacks.put(groupName, newList);
+            //_log.info("Subscription completed, new group created.");
         }
     }
 
     private void sendBatchList(byte[] body) throws IOException {
-        _log.info("Sending batchlist to http://localhost:8008/batches");
+        //_log.info("Sending batchlist to http://localhost:8008/batches");
         URL url = new URL("http://localhost:8008/batches");
         URLConnection con = url.openConnection();
         HttpURLConnection http = (HttpURLConnection) con;
@@ -312,7 +358,7 @@ public class HyperZMQ {
         }
 
         if (response != null) {
-            _log.info(response);
+            //_log.info(response);
         }
     }
 }

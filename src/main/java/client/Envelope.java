@@ -5,13 +5,13 @@ import com.google.gson.Gson;
 import javax.annotation.Nonnull;
 
 public class Envelope {
-    private String sender;
-    private String type;
-    private String rawMessage;
+    private final String sender;
+    private final String type;
+    private final String rawMessage;
 
-    public static final String TYPE_CONTRACT = "contract";
-    public static final String TYPE_TEXT = "text";
-    public static final String TYPE_CONTRACT_RECEIPT = "contract_receipt";
+    public static final String MESSAGETYPE_CONTRACT = "contract";
+    public static final String MESSAGETYPE_TEXT = "text";
+    public static final String MESSAGETYPE_CONTRACT_RECEIPT = "contract_receipt";
 
     public Envelope(@Nonnull String sender, @Nonnull String type, @Nonnull String rawMessage) {
         this.sender = sender;

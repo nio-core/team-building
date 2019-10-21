@@ -26,6 +26,6 @@ public class SumContractProcessor implements ContractProcessor {
             return r;
         }).collect(Collectors.toList());
 
-        return ints.stream().reduce(0, (a,i) -> a+=i);
+        return ints.stream().reduce(0, (a, i) -> a += i);
     }
 }

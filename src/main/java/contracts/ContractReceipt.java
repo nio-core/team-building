@@ -1,4 +1,5 @@
 package contracts;
+
 import com.google.gson.Gson;
 
 import javax.annotation.Nonnull;
@@ -6,8 +7,8 @@ import java.util.UUID;
 
 public class ContractReceipt {
 
-    private String processor;
     private String receiptID;
+    private String processor;
     private String result;
     private Contract contract;
 

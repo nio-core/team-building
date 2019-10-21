@@ -14,6 +14,6 @@ class Data {
     }
 
     String getSigningKeyHex() {
-       return data.get(Storage.SAWTOOTHER_SIGNER_KEY);
+        return data.get(Storage.SAWTOOTHER_SIGNER_KEY);
     }
 }

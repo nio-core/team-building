@@ -15,13 +15,13 @@ import java.util.logging.Logger;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class CSVStringsHandler implements TransactionHandler {
-    private final Logger log = Logger.getLogger(CSVStringsHandler.class.getName());
+    private final Logger _log = Logger.getLogger(CSVStringsHandler.class.getName());
     private String namespace;
 
-    public CSVStringsHandler() {
+    CSVStringsHandler() {
         // Convention
         namespace = Utils.hash512(transactionFamilyName().getBytes(UTF_8)).substring(0, 6);
-        log.info("Starting TransactionProcessor with namespace '" + namespace + "'");
+        _log.info("Starting TransactionProcessor with namespace '" + namespace + "'");
     }
 
     @Override
@@ -59,7 +59,7 @@ public class CSVStringsHandler implements TransactionHandler {
         }
 
         String payloadStr = tpProcessRequest.getPayload().toString(UTF_8);
-        log.info("Got payload: " + payloadStr);
+        //_log.info("Got payload: " + payloadStr);
 
         TransactionHeader header = tpProcessRequest.getHeader();
         // TODO do something with in/outputs?
@@ -72,42 +72,37 @@ public class CSVStringsHandler implements TransactionHandler {
             throw new InvalidTransactionException("Payload or Header is corrupted!");
         }
 
-        List<String> strings = Arrays.asList(payloadStr.split(","));
+        String[] strings = payloadStr.split(",");
 
-        if (strings.size() < 2) {
+        if (strings.length < 2) {
             throw new InvalidTransactionException("Not enough values!");
         }
 
         // The order in the CSV String is <group>,<encrypted message>
-        String group = strings.get(0);
-        String message = strings.get(1);
-
+        String group = strings[0];
+        String message = strings[1];
         // An address is a hex-encoded 70 character string representing 35 bytes
         // The address format contains a 3 byte (6 hex character) namespace prefix
         // The rest of the address format is up to the implementation
-        // TODO => 3 byte namespace + 3 byte group + 29 byte some identifier?
 
-        String hashedGroup = Utils.hash512(group.getBytes(UTF_8));
-        // for now just use the group as identifier for the remaining bytes
-        String address = namespace + hashedGroup.substring(hashedGroup.length() - 64);
+        // for now just use the message as identifier for the remaining bytes
+        String hashedMsg = Utils.hash512(message.getBytes(UTF_8));
+        String address = namespace + hashedMsg.substring(hashedMsg.length() - 64);
         //log.info("Address calculated as: " + address + "  (size=" + address.length() + ")");
 
         // Fire event with the message //////////////////////////////////////
-        //log.info("firing event...");
+        //_log.info("firing event..."); // TODO
         Map.Entry<String, String> e = new AbstractMap.SimpleEntry<>("address", address);
         Collection<Map.Entry<String, String>> collection = Arrays.asList(e);
         //  addEvent(String identifier, collection<attributes>, data bytestring)
         context.addEvent("myEvent", collection, tpProcessRequest.getPayload());
         /////////////////////////////////////////////////////////////////////
-
+        /*
         // Check the state at that address
         Collection<String> checkAddr = new ArrayList<>();
         checkAddr.add(address);
-
         //log.info("Checking state at address " + checkAddr.toString());
         Map<String, ByteString> alreadySetValues = context.getState(checkAddr);
-
-/*
         if (alreadySetValues != null) {
             alreadySetValues.forEach((key, value) ->
                     log.info("Values at address before: "
@@ -116,7 +111,7 @@ public class CSVStringsHandler implements TransactionHandler {
         } else {
             log.info("address is empty.");
         }
-*/
+        */
         // Prepare the message to be set
         Map.Entry<String, ByteString> entry = new AbstractMap.SimpleEntry<>(address,
                 ByteString.copyFrom(message.getBytes(UTF_8)));
@@ -132,5 +127,4 @@ public class CSVStringsHandler implements TransactionHandler {
       /*  log.info("Returned Addresses from setting new value:");
         returnedAddresses.forEach(log::info);*/
     }
-
 }

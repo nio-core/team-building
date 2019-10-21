@@ -22,7 +22,7 @@ class EventHandler {
      * Connect to the event subsystem. If successful, start a thread which receives events.
      */
     private void subscribe() {
-        _log.info("Subscribing...");
+        //_log.info("Subscribing...");
         EventFilter eventFilter = EventFilter.newBuilder()
                 .setKey("address")
                 .setMatchString("2f9d35*")
@@ -43,24 +43,24 @@ class EventHandler {
                 .addSubscriptions(subscription)
                 .build();
 
-        Message message = Message.newBuilder()
+        sawtooth.sdk.protobuf.Message message = sawtooth.sdk.protobuf.Message.newBuilder()
                 .setCorrelationId("123")
-                .setMessageType(Message.MessageType.CLIENT_EVENTS_SUBSCRIBE_REQUEST)
+                .setMessageType(sawtooth.sdk.protobuf.Message.MessageType.CLIENT_EVENTS_SUBSCRIBE_REQUEST)
                 .setContent(request.toByteString())
                 .build();
 
-        //log.info("Sending subscription request...");
+        //_log.info("Sending subscription request...");
         socket.send(message.toByteArray());
 
         byte[] responseBytes = socket.recv();
-        Message respMsg = null;
+        sawtooth.sdk.protobuf.Message respMsg = null;
         try {
-            respMsg = Message.parseFrom(responseBytes);
-            //log.info("Response deserialized: " + respMsg.toString());
+            respMsg = sawtooth.sdk.protobuf.Message.parseFrom(responseBytes);
+            //_log.info("Response deserialized: " + respMsg.toString());
         } catch (InvalidProtocolBufferException e) {
             e.printStackTrace();
         }
-        if (respMsg == null || respMsg.getMessageType() != Message.MessageType.CLIENT_EVENTS_SUBSCRIBE_RESPONSE) {
+        if (respMsg == null || respMsg.getMessageType() != sawtooth.sdk.protobuf.Message.MessageType.CLIENT_EVENTS_SUBSCRIBE_RESPONSE) {
             _log.info("Response was no subscription response");
             return;
         }
@@ -92,7 +92,7 @@ class EventHandler {
      * @param socket socket on which events are received
      */
     private void receiveEvents(ZMQ.Socket socket) {
-        _log.info("Starting to listen to events...");
+        //_log.info("Starting to listen to events...");
         while (_runEventReceiver) {
             byte[] recv = socket.recv();
             try {
@@ -104,21 +104,21 @@ class EventHandler {
                 EventList list = EventList.parseFrom(msg.getContent());
                 for (Event e : list.getEventsList()) {
                     String received = e.toString();
-                    _log.info("[Event] received deserialized: " + received);
+                    //_log.info("[Event] received deserialized: " + received);
 
                     String fullMessage = received.substring(received.indexOf("data"));
-                    _log.info("fullMessage: " + fullMessage);
+                    //_log.info("fullMessage: " + fullMessage);
 
                     String csvMessage = fullMessage.substring(7, fullMessage.length() - 2); //TODO
-                    _log.info("csvMessage: " + csvMessage);
+                    //_log.info("csvMessage: " + csvMessage);
 
                     String[] parts = csvMessage.split(",");
                     String group = parts[0];
                     String encMessage = parts[1];
-                    _log.info("Group: " + group);
-                    _log.info("Encrypted Message: " + encMessage);
+                    //_log.info("Group: " + group);
+                    //_log.info("Encrypted Message: " + encMessage);
 
-                    _hyperzmq.newMessage(group, encMessage);
+                    _hyperzmq.newEventReceived(group, encMessage);
                 }
             } catch (InvalidProtocolBufferException e) {
                 e.printStackTrace();

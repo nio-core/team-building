@@ -10,4 +10,12 @@
 after the network started, the transaction processor can be started from `CSVStringTP.main`  
 it should be visible in the terminal that a transaction processor connected.
 
-now the transaction can be sent (+event subscription) from `Main`
+## Sending text
+[Example](https://github.com/StefanJakob/HyperZMQ/blob/eeecf8991f780d9f834e5898cad8c1a59eb3931e/src/test/java/client/TextMessagesTest.java#L16)
+
+## Sending contract
+[Example](https://github.com/StefanJakob/HyperZMQ/blob/eeecf8991f780d9f834e5898cad8c1a59eb3931e/src/test/java/client/ContractsTest.java#L44)
+
+### New contract types
+New contract types can be added by implementing the `ContractProcessor` interface and adding them to the HyperZMQ instance.
+Specify the supported operation in the contract.

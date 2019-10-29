@@ -13,7 +13,6 @@ import javax.crypto.spec.SecretKeySpec;
 import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
 import java.util.*;
-import java.util.logging.Logger;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -23,7 +22,6 @@ class Crypto {
     private static final int GCM_TAG_SIZE_BITS = 128;
     private static final int GCM_IV_SIZE_BYTES = 12;
 
-    private Logger _log = Logger.getLogger(getClass().getName());
     private char[] _keyStorePass;
     private String _pathToKeyStore;
     private HyperZMQ _hyperZMQ;

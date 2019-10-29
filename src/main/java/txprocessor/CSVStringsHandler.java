@@ -10,18 +10,16 @@ import sawtooth.sdk.protobuf.TpProcessRequest;
 import sawtooth.sdk.protobuf.TransactionHeader;
 
 import java.util.*;
-import java.util.logging.Logger;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class CSVStringsHandler implements TransactionHandler {
-    private final Logger _log = Logger.getLogger(CSVStringsHandler.class.getName());
     private String namespace;
 
     CSVStringsHandler() {
         // Convention
         namespace = Utils.hash512(transactionFamilyName().getBytes(UTF_8)).substring(0, 6);
-        _log.info("Starting TransactionProcessor with namespace '" + namespace + "'");
+        print("Starting TransactionProcessor with namespace '" + namespace + "'");
     }
 
     @Override
@@ -59,7 +57,7 @@ public class CSVStringsHandler implements TransactionHandler {
         }
 
         String payloadStr = tpProcessRequest.getPayload().toString(UTF_8);
-        //_log.info("Got payload: " + payloadStr);
+        //print("Got payload: " + payloadStr);
 
         TransactionHeader header = tpProcessRequest.getHeader();
         // TODO do something with in/outputs?
@@ -91,11 +89,12 @@ public class CSVStringsHandler implements TransactionHandler {
         //log.info("Address calculated as: " + address + "  (size=" + address.length() + ")");
 
         // Fire event with the message //////////////////////////////////////
-        //_log.info("firing event..."); // TODO
+        //print("firing event..."); // TODO
         Map.Entry<String, String> e = new AbstractMap.SimpleEntry<>("address", address);
         Collection<Map.Entry<String, String>> collection = Arrays.asList(e);
         //  addEvent(String identifier, collection<attributes>, data bytestring)
-        context.addEvent("myEvent", collection, tpProcessRequest.getPayload());
+        //context.addEvent("myEvent", collection, tpProcessRequest.getPayload());
+        context.addEvent(group, collection, tpProcessRequest.getPayload());
         /////////////////////////////////////////////////////////////////////
         /*
         // Check the state at that address
@@ -126,5 +125,9 @@ public class CSVStringsHandler implements TransactionHandler {
         }
       /*  log.info("Returned Addresses from setting new value:");
         returnedAddresses.forEach(log::info);*/
+    }
+
+    void print(String message) {
+        System.out.println("[TP]  " + message);
     }
 }

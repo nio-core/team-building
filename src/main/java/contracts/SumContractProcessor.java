@@ -1,5 +1,6 @@
 package contracts;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -27,5 +28,10 @@ public class SumContractProcessor implements ContractProcessor {
         }).collect(Collectors.toList());
 
         return ints.stream().reduce(0, (a, i) -> a += i);
+    }
+
+    @Override
+    public List<String> getSupportedOperations() {
+        return Collections.singletonList(SUPPORTED_OPERATION);
     }
 }

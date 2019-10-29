@@ -11,12 +11,10 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 class Storage {
 
-    private Logger _log = Logger.getLogger(getClass().getName());
     private static final String PKCS_12 = "pkcs12";
     static final String DEFAULT_KEYSTORE_PATH = "keystore.jks";
     static final String DEFAULT_DATA_PATH = "data.dat";

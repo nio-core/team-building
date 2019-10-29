@@ -282,27 +282,25 @@ public class HyperZMQ {
             // Find a processor to handle the message
             Object result = null;
             for (ContractProcessor processor : _contractProcessors) {
-                result = processor.processContract(contract);
-                if (result != null) {
-                    break;
+                if (processor.getSupportedOperations().contains(contract.getOperation())) {
+                    result = processor.processContract(contract);
+                    if (result != null) {
+                        break;
+                    }
                 }
             }
             if (result == null) {
                 _log.info("No processor found for contract: " + contract.toString());
                 return;
             }
-            // Process the result
-            // TODO
-            if (result instanceof Integer) {
-                int intResult = (int) result;
-            }
+            //
             //_log.info("Contract processed with result: " + result);
 
-            // Build a result to send back
+            // Process the result: Build a receipt to send back
             ContractReceipt receipt = new ContractReceipt(_id, String.valueOf(result), contract);
             sendReceiptToChain(group, receipt);
         } else {
-            //_log.info("Contract was not for this client:" + contract);
+            //_log.info("Contract was not for this client: " + contract);
         }
 
     }

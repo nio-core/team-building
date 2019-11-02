@@ -20,13 +20,33 @@ public class CodeExecutingProcessor implements ContractProcessor {
 
     private final static String SUPPORTED_OPERATION = "javacodeexecution";
 
+    /**
+     * Proof of Concept to run arbitrary source code as a "contract".
+     * This does not include packages or method parameters, to achieve those, it would be best to introduce a new contract type
+     * to ease parsing the different components needed to execute the code.
+     *
+     * @param contract Contains the source code
+     * @return nothing
+     */
     @Override
     public Object processContract(Contract contract) {
         // Get the source code from the args, line for line
         String sourceCode = contract.getArgs().stream().reduce("", (accu, s) -> accu += "\n" + s);
 
         // Save a .java file
-        File javaFile = new File("TestClass.java");
+        File javaFile = new File("target/TestClass.java");
+        //System.out.println("Javafile path: " + javaFile.getAbsolutePath());
+        if (!javaFile.exists()) {
+            try {
+                if (javaFile.createNewFile()) {
+                    //System.out.println("New File created successfully");
+                } else {
+                    System.out.println("File could not be created!");
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
         BufferedWriter writer;
         try {
             writer = new BufferedWriter(new FileWriter(javaFile));
@@ -48,44 +68,41 @@ public class CodeExecutingProcessor implements ContractProcessor {
         } catch (IOException e) {
             e.printStackTrace();
         }
-        System.out.println("Java file has been successfully compiled!");
+        //System.out.println("Java file has been successfully compiled!");
 
         // Load the compiled file with a ClassLoader
-        File compiledFile = new File("TestClass.class");
+        File compiledFile = new File("target/TestClass.class");
         if (!compiledFile.exists()) {
             System.out.println("Compiled file does not exist!");
             return null;
         }
+
         URLClassLoader loader = null;
         try {
-            URL[] urls = new URL[]{compiledFile.toURI().toURL()};
-            System.out.println("Compiled class URL: " + compiledFile.toURI().toURL().toString());
-            ClassLoader parentCL = Thread.currentThread().getContextClassLoader();
-            loader = new URLClassLoader(urls, parentCL);
+            URL[] urls = new URL[]{new File("target/").toURI().toURL()};
+            //System.out.println("Compiled class path: " + compiledFile.getAbsolutePath());
+            loader = new URLClassLoader(urls);
             //loader.findResource("TestClass.class");
+
+            // Double check that the loader is pointing to the right path
+           /* for (URL url : loader.getURLs()) {
+                System.out.println("URLs path: " + url.getPath());
+            } */
+
         } catch (MalformedURLException e) {
             e.printStackTrace();
             return null;
         }
         // Try to execute the method on a instance of the class
         try {
-            for (URL l : loader.getURLs()) {
-                System.out.println("URL: " + l.toString());
-            }
-            Class clazz = loader.loadClass("test.TestClass");
-            System.out.println("Class has been loaded successfully");
+            Class clazz = loader.loadClass("TestClass");
+            //System.out.println("Class has been loaded successfully");
             Method method = clazz.getMethod("callMe", null);
             Object object = clazz.newInstance();
             method.invoke(object, null);
-        } catch (ClassNotFoundException | NoSuchMethodException e) {
-            e.printStackTrace();
-        } catch (IllegalAccessException e) {
-            e.printStackTrace();
-        } catch (InstantiationException | InvocationTargetException e) {
+        } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException | InstantiationException | InvocationTargetException e) {
             e.printStackTrace();
         }
-
-
         return true;
     }
 

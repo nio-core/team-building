@@ -3,6 +3,8 @@ package client;
 import org.junit.Test;
 import txprocessor.CSVStringsTP;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.Assert.*;
@@ -48,7 +50,7 @@ public class TextMessagesTest {
         client1.createGroup("group12");
         client1.createGroup("group13");
         client2.addGroup("group12", client1.getKeyForGroup("group12"), (group, message, senderID) -> {
-            System.out.println("[Client 2] received: group=" + group + ", message=" + message + ", sender=" + senderID);
+            System.out.println("[Client2] received: group=" + group + ", message=" + message + ", sender=" + senderID);
 
             assertEquals("group12", group);
             assertEquals("test from 1 to 2", message);
@@ -57,7 +59,7 @@ public class TextMessagesTest {
         });
 
         client3.addGroup("group13", client1.getKeyForGroup("group13"), (group, message, senderID) -> {
-            System.out.println("[Client 3] received: group=" + group + ", message=" + message + ", sender=" + senderID);
+            System.out.println("[Client3] received: group=" + group + ", message=" + message + ", sender=" + senderID);
 
             assertEquals("group13", group);
             assertEquals("test from 1 to 3", message);
@@ -88,7 +90,7 @@ public class TextMessagesTest {
         client2.addGroup(TESTGROUP, key);
         // The client receives its own messages because it subscribed to the group
         client1.addCallbackToGroup(TESTGROUP, ((group, message, sender) -> {
-            System.out.println("[Client 1] received: group=" + group + ", message=" + message + ", sender=" + sender);
+            System.out.println("[Client1] received: group=" + group + ", message=" + message + ", sender=" + sender);
 
             assertEquals("testGroup", group);
             assertEquals("testMessage", message);
@@ -98,7 +100,7 @@ public class TextMessagesTest {
         // The other client receives the (encrypted) messages too, because it has the key for the group
         // and subscribed to the group
         client2.addCallbackToGroup(TESTGROUP, (group, message, sender) -> {
-            System.out.println("[Client 2] received: group=" + group + ", message=" + message + ", sender=" + sender);
+            System.out.println("[Client2] received: group=" + group + ", message=" + message + ", sender=" + sender);
 
             assertEquals("testMessage", message);
             assertEquals("testGroup", group);
@@ -116,6 +118,31 @@ public class TextMessagesTest {
 
         assertTrue(c1received.get());
         assertTrue(c2received.get());
+    }
+
+    private int messageCount;
+
+    @Test
+    public void testMultiMessage() {
+        CSVStringsTP.main(null);
+        sleep(1000);
+        HyperZMQ client1 = new HyperZMQ("Client1", "password", true);
+        HyperZMQ client2 = new HyperZMQ("Client2", "client2.jks", "drowssap", true);
+        client1.createGroup(TESTGROUP);
+        client2.addGroup(TESTGROUP, client1.getKeyForGroup(TESTGROUP));
+
+        messageCount = 0;
+        client2.addCallbackToGroup(TESTGROUP, (group, message, senderID) -> {
+            messageCount++;
+        });
+
+        List<String> list = new ArrayList<>();
+        for (int i = 0; i < 50; i++) {
+            list.add("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+        }
+        client1.sendTextsToChain(TESTGROUP, list);
+        sleep(4000);
+        assertEquals(50, messageCount);
     }
 
     private void sleep(int ms) {

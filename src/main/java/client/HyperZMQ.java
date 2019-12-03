@@ -54,14 +54,14 @@ public class HyperZMQ {
      * @param groupName group
      * @param message   message
      */
-    public void sendTextToChain(String groupName, String message) {
+    public boolean sendTextToChain(String groupName, String message) {
         if (groupName == null || message == null || groupName.isEmpty() || message.isEmpty()) {
             logprint("Empty group and/or message!");
-            return;
+            return false;
         }
         // Wrap the message - the complete envelope will be encrypted
         Envelope envelope = new Envelope(_clientID, MESSAGETYPE_TEXT, message);
-        sendSingleEnvelope(groupName, envelope);
+        return sendSingleEnvelope(groupName, envelope);
     }
 
     /**
@@ -71,12 +71,12 @@ public class HyperZMQ {
      * @param groupName groups name
      * @param messages  messages
      */
-    public void sendTextsToChain(String groupName, List<String> messages) {
+    public boolean sendTextsToChain(String groupName, List<String> messages) {
         if (groupName == null || messages == null || groupName.isEmpty() || messages.isEmpty()) {
             logprint("Empty group and/or message!");
-            return;
+            return false;
         }
-        sendTextsToChain(Collections.singletonMap(groupName, messages));
+        return sendTextsToChain(Collections.singletonMap(groupName, messages));
     }
 
     /**
@@ -85,10 +85,10 @@ public class HyperZMQ {
      *
      * @param map map of group with their corresponding messages
      */
-    public void sendTextsToChain(Map<String, List<String>> map) {
+    public boolean sendTextsToChain(Map<String, List<String>> map) {
         if (map == null || map.isEmpty()) {
             logprint("Empty map!");
-            return;
+            return false;
         }
         Map<String, List<Envelope>> list = new HashMap<>();
 
@@ -99,51 +99,50 @@ public class HyperZMQ {
             }
             list.put(group, envelopeList);
         });
-        sendEnvelopeList(list);
+        return sendEnvelopeList(list);
     }
 
-    private void sendSingleEnvelope(String group, Envelope envelope) {
+    private boolean sendSingleEnvelope(String group, Envelope envelope) {
         byte[] payloadBytes = encryptEnvelope(group, envelope);
         List<Transaction> transactionList = Collections.singletonList(_blockchainHelper.buildTransaction(payloadBytes));
-        _blockchainHelper.buildAndSendBatch(transactionList);
+        return _blockchainHelper.buildAndSendBatch(transactionList);
     }
 
-    private void sendEnvelopeList(Map<String, List<Envelope>> list) {
+    private boolean sendEnvelopeList(Map<String, List<Envelope>> list) {
         List<Transaction> transactionList = new ArrayList<>();
         list.forEach((groupName, envelopeList) -> {
             envelopeList.forEach((envelope -> {
                 transactionList.add(_blockchainHelper.buildTransaction(encryptEnvelope(groupName, envelope)));
             }));
         });
-        System.out.println("sending tx list with size: " + transactionList.size());
-        _blockchainHelper.buildAndSendBatch(transactionList);
+        return _blockchainHelper.buildAndSendBatch(transactionList);
     }
 
-    public void sendContractToChain(String groupName, Contract contract, ContractProcessingCallback callback) {
+    public boolean sendContractToChain(String groupName, Contract contract, ContractProcessingCallback callback) {
         if (callback != null) {
             _contractCallbacks.put(contract.getContractID(), callback);
         }
-        sendContractToChain(groupName, contract);
+        return sendContractToChain(groupName, contract);
     }
 
-    public void sendContractToChain(String groupName, Contract contract) {
+    public boolean sendContractToChain(String groupName, Contract contract) {
         if (groupName == null || contract == null) {
             logprint("Empty group and/or contract!");
-            return;
+            return false;
         }
         // Wrap the contract - the complete envelope will be encrypted
         Envelope envelope = new Envelope(_clientID, MESSAGETYPE_CONTRACT, contract.toString());
-        sendSingleEnvelope(groupName, envelope);
+        return sendSingleEnvelope(groupName, envelope);
     }
 
-    private void sendReceiptToChain(String groupName, ContractReceipt receipt) {
+    private boolean sendReceiptToChain(String groupName, ContractReceipt receipt) {
         if (groupName == null || receipt == null) {
             logprint("Empty group and/or receipt!");
-            return;
+            return false;
         }
 
         Envelope envelope = new Envelope(_clientID, MESSAGETYPE_CONTRACT_RECEIPT, receipt.toString());
-        sendSingleEnvelope(groupName, envelope);
+        return sendSingleEnvelope(groupName, envelope);
     }
 
     public void addContractProcessor(ContractProcessor contractProcessor) {
@@ -263,6 +262,7 @@ public class HyperZMQ {
             return;
         }
         Envelope envelope = new Gson().fromJson(plainMessage, Envelope.class);
+
         // TODO PROCESS NEW MESSAGE TYPES HERE
         switch (envelope.getType()) {
             case MESSAGETYPE_CONTRACT: {
@@ -281,6 +281,14 @@ public class HyperZMQ {
                 logprint("Unknown message type: " + envelope.getType());
                 break;
         }
+    }
+
+    /**
+     * IT'S IMPORTANT TO CALL THIS METHOD WHEN FINISHED WITH THIS INSTANCE AND YOU STILL WANT TO CONTINUE.
+     * STOPS ALL THREADS RELATED TO THIS INSTANCE
+     */
+    public void close() {
+        _eventHandler.stopAllThreads();
     }
 
     private void handleContractReceipt(String group, Envelope envelope) {
@@ -382,5 +390,9 @@ public class HyperZMQ {
 
     protected void logprint(String message) {
         System.out.println("[" + _clientID + "]  " + message);
+    }
+
+    public void setValidatorURL(String url) {
+        _eventHandler.setValidatorURL(url);
     }
 }

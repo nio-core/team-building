@@ -20,6 +20,7 @@ class BlockchainHelper {
     private String _batchesEndpoint;
     private Signer _signer;
     private HyperZMQ _hyperzmq;
+    private boolean _printRESTAPIResponse = true;
 
     BlockchainHelper(HyperZMQ hyperZMQ, Signer signer, String batchesEndpoint) {
         _hyperzmq = hyperZMQ;
@@ -61,8 +62,8 @@ class BlockchainHelper {
         return transaction;
     }
 
-    void buildAndSendBatch(List<Transaction> transactionList) {
-        // Wrap the transaction in a Batch (atomic unit)
+    boolean buildAndSendBatch(List<Transaction> transactionList) {
+        // Wrap the transactions in a Batch (atomic unit)
         // Create the BatchHeader
         BatchHeader batchHeader = BatchHeader.newBuilder()
                 .setSignerPublicKey(_signer.getPublicKey().hex())
@@ -90,13 +91,14 @@ class BlockchainHelper {
                 .toByteArray();
 
         try {
-            sendBatchList(batchListBytes);
+            return sendBatchList(batchListBytes);
         } catch (IOException e) {
             e.printStackTrace();
+            return false;
         }
     }
 
-    private void sendBatchList(byte[] body) throws IOException {
+    private boolean sendBatchList(byte[] body) throws IOException {
         URL url = new URL(_batchesEndpoint);
         URLConnection con = url.openConnection();
         HttpURLConnection http = (HttpURLConnection) con;
@@ -115,10 +117,14 @@ class BlockchainHelper {
             BufferedReader br = new BufferedReader(new InputStreamReader(is));
             Stream<String> lines = br.lines();
             response = lines.reduce("", (accu, s) -> accu += s);
+        } catch (IOException e) {
+            e.printStackTrace();
+            return false;
         }
 
-        if (response != null) {
+        if (response != null && _printRESTAPIResponse) {
             _hyperzmq.logprint(response);
         }
+        return true;
     }
 }

@@ -5,6 +5,8 @@ import com.google.gson.JsonSyntaxException;
 import contracts.Contract;
 import contracts.ContractProcessor;
 import contracts.ContractReceipt;
+import nativesocket.Keypair;
+import nativesocket.NativeZMQSocket;
 import sawtooth.sdk.protobuf.Transaction;
 
 import java.security.GeneralSecurityException;
@@ -62,6 +64,16 @@ public class HyperZMQ {
         // Wrap the message - the complete envelope will be encrypted
         Envelope envelope = new Envelope(_clientID, MESSAGETYPE_TEXT, message);
         return sendSingleEnvelope(groupName, envelope);
+    }
+
+    /**
+     * Generate a Keypair of 256bit key for the Curve25519 elliptic curve.
+     * The keys are encoded in Z85 (a ascii85 variant).
+     *
+     * @return keypair
+     */
+    public Keypair generateZ85Keypair() {
+        return NativeZMQSocket.getZ85Keypair();
     }
 
     /**

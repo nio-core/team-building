@@ -94,7 +94,11 @@ public class CSVStringsHandler implements TransactionHandler {
         Collection<Map.Entry<String, String>> collection = Arrays.asList(e);
         //  addEvent(String identifier, collection<attributes>, data bytestring)
         //context.addEvent("myEvent", collection, tpProcessRequest.getPayload());
-        context.addEvent(group, collection, tpProcessRequest.getPayload());
+        try {
+            context.addEvent(group, collection, tpProcessRequest.getPayload());
+        } catch (InternalError internalError) {
+            internalError.printStackTrace();
+        }
         /////////////////////////////////////////////////////////////////////
         /*
         // Check the state at that address

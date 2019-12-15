@@ -19,21 +19,11 @@
             </plugin>
         </plugins>
     </build>
-    <packaging>jar</packaging>
+    <packaging>pom</packaging>
 
     <name>${project.groupId}:${project.artifactId}</name>
 
- <!--
-    <modules>
-        <module>SafeZMQ</module>
-    </modules>
--->
     <dependencies>
-        <dependency>
-            <groupId>org.hyperledger.sawtooth</groupId>
-            <artifactId>sawtooth-sdk-transaction-processor</artifactId>
-            <version>v0.1.3</version>
-        </dependency>
 
         <dependency>
             <groupId>org.hyperledger.sawtooth</groupId>
@@ -79,6 +69,20 @@
             <version>1.9.5</version>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>org.zeromq</groupId>
+            <artifactId>jeromq</artifactId>
+            <version>0.4.3</version>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>de.uniks</groupId>
+            <artifactId>sawtooth-sdk-transaction-processor</artifactId>
+            <version>v0.1.3</version>
+            <scope>compile</scope>
+        </dependency>
+
     </dependencies>
 
 </project>

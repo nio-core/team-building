@@ -1,6 +1,7 @@
 package client;
 
 import com.google.protobuf.ByteString;
+import sawtooth.sdk.processor.Utils;
 import sawtooth.sdk.protobuf.*;
 import sawtooth.sdk.signing.Signer;
 
@@ -13,7 +14,6 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static sawtooth.sdk.processor.Utils.hash512;
 
 class BlockchainHelper {
     private static final String DEFAULT_BATCHES_ENDPOINT = "http://localhost:8008/batches";
@@ -46,7 +46,7 @@ class BlockchainHelper {
                 // TODO setting in/outputs increases security as it limits the read/write of the transaction processor
                 .addOutputs("2f9d35") // Set output as wildcard to our namespace
                 .addInputs("2f9d35")
-                .setPayloadSha512(hash512(payload))
+                .setPayloadSha512(Utils.hash512(payload))
                 .setBatcherPublicKey(_signer.getPublicKey().hex())
                 .setNonce(UUID.randomUUID().toString())
                 .build();

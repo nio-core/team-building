@@ -1,6 +1,7 @@
 package client;
 
 import com.google.protobuf.InvalidProtocolBufferException;
+
 import org.zeromq.ZContext;
 import org.zeromq.ZMQ;
 import sawtooth.sdk.protobuf.*;
@@ -8,6 +9,8 @@ import sawtooth.sdk.protobuf.*;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
+
+import static client.HyperZMQ.*;
 
 class EventHandler {
     private final HyperZMQ _hyperzmq;
@@ -139,7 +142,7 @@ class EventHandler {
             //_hyperzmq.logprint("Subscribing...");
             EventFilter eventFilter = EventFilter.newBuilder()
                     .setKey("address")
-                    .setMatchString("2f9d35*")
+                    .setMatchString(CSVSTRINGS_NAMESPACE_PREFIX + "*")
                     .setFilterType(EventFilter.FilterType.REGEX_ANY)
                     .build();
 

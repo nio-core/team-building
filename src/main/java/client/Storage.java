@@ -29,6 +29,7 @@ class Storage {
         this._keystorePath = _keystorePath != null ? _keystorePath : DEFAULT_KEYSTORE_PATH;
         this._keystorePassword = _keystorePassword;
         this._datafilePath = _datafilePath != null ? _datafilePath : DEFAULT_DATA_PATH;
+        //System.out.println("Storage with keystore path=" + _keystorePath + " and data file path=" + _datafilePath);
     }
 
     void saveData(Data data) {
@@ -62,7 +63,7 @@ class Storage {
             throw new InternalError("Data encryption key is null, cannot proceed.");
         }
         JSONObject jsonObject = new JSONObject(data);
-        //System.out.println("String to write:" + jsonObject.toString());
+        //System.out.println("String to write: " + jsonObject.toString());
         String toWrite;
         try {
             toWrite = Crypto.encrypt(jsonObject.toString(), _dataEncryptionKey);
@@ -89,7 +90,7 @@ class Storage {
         for (String s : strings) {
             try {
                 String decrypted = Crypto.decrypt(s, _dataEncryptionKey);
-                System.out.println("Strings from file " + decrypted);
+                //System.out.println("Strings from file " + decrypted);
                 JSONObject jsonObject = new JSONObject(decrypted);
                 for (String key : jsonObject.keySet()) {
                     ret.put(key, jsonObject.getString(key));
@@ -118,7 +119,7 @@ class Storage {
 
             ks.setEntry(DATA_ENCRYPTION_KEY_ALIAS, new KeyStore.SecretKeyEntry(_dataEncryptionKey), protParam);
             //System.out.println("saved data enc key as: " + Base64.getEncoder().encodeToString(_dataEncryptionKey.getEncoded()));
-            FileOutputStream fos = new FileOutputStream(DEFAULT_KEYSTORE_PATH);
+            FileOutputStream fos = new FileOutputStream(_keystorePath);
             ks.store(fos, _keystorePassword);
         } catch (KeyStoreException | CertificateException | NoSuchAlgorithmException | IOException e) {
             //e.printStackTrace();

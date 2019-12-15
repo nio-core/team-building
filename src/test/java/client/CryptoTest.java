@@ -63,5 +63,19 @@ public class CryptoTest {
         assertEquals(msg, dec);
     }
 
+    @Test
+    public void testCurveKeyStorage() {
+        HyperZMQ h = new HyperZMQ("test", "teststore.jks", "password", true);
+        Keypair kpServer = new Keypair("server", null, "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+        Keypair kpClient = h.generateZ85Keypair("client");
+        h.addForeignKeypair(kpServer.alias, kpServer.publicKey);
+
+        assertNotNull(h.getKeypair("server"));
+        assertNotNull(h.getKeypair("server"));
+
+        HyperZMQ h2 = new HyperZMQ("test2", "teststore.jks", "password", false);
+        assertNotNull(h2.getKeypair("client"));
+        assertNotNull(h2.getKeypair("server"));
+    }
 
 }

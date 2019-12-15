@@ -5,8 +5,8 @@ import com.google.gson.JsonSyntaxException;
 import contracts.Contract;
 import contracts.ContractProcessor;
 import contracts.ContractReceipt;
-import nativesocket.Keypair;
-import nativesocket.NativeZMQSocket;
+import org.zeromq.ZContext;
+import org.zeromq.ZMQ;
 import sawtooth.sdk.protobuf.Transaction;
 
 import java.security.GeneralSecurityException;
@@ -15,7 +15,13 @@ import java.util.*;
 import static client.Envelope.*;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import zmq.io.mechanism.curve.Curve;
+
+import javax.annotation.Nullable;
+
 public class HyperZMQ {
+
+    static final String CSVSTRINGS_NAMESPACE_PREFIX = "2f9d35";
 
     private EventHandler _eventHandler;
     private Crypto _crypto;
@@ -24,6 +30,7 @@ public class HyperZMQ {
     private Map<String, List<SubscriptionCallback>> _textmessageCallbacks = new HashMap<>();
     private Map<String, ContractProcessingCallback> _contractCallbacks = new HashMap<>(); // key is the contractID
     private BlockchainHelper _blockchainHelper;
+    private ZContext _zContext = new ZContext();
 
     /**
      * @param id               id
@@ -50,6 +57,95 @@ public class HyperZMQ {
     }
 
     /**
+     * Create a socket with encryption set up as a server which binds.
+     * (Other clients need this clients public key to create a socket which can
+     *  receive from the one created)
+     *
+     * @param type        type of socket
+     * @param myKeysAlias alias for this clients key
+     * @param addr        address to call bind for
+     * @return socket or null if error
+     */
+    public ZMQ.Socket createServerSocket(int type, String myKeysAlias, String addr) {
+        Keypair kp = _crypto.getKeypair(myKeysAlias);
+        if (kp == null) {
+            System.out.println("No keys for alias " + myKeysAlias + "found!");
+            return null;
+        }
+
+        ZMQ.Socket s = _zContext.createSocket(type);
+        s.setAsServerCurve(true);
+        s.setCurvePublicKey(kp.publicKey.getBytes());
+        s.setCurveSecretKey(kp.privateKey.getBytes());
+        s.bind(addr);
+        return s;
+    }
+
+    /**
+     * Create a socket with encryption set up as client which connects
+     *
+     * @param type          type of socket
+     * @param myKeysAlias   alias for this clients key
+     * @param theirKeyAlias alias for the key of entity we want to receive from
+     * @param addr          address to call connect for
+     * @return socket or null if error
+     */
+    public ZMQ.Socket createClientSocket(int type, String myKeysAlias, String theirKeyAlias, String addr) {
+        Keypair server = _crypto.getKeypair(theirKeyAlias);
+        if (server == null) {
+            System.out.println("No keys for alias " + theirKeyAlias + "found!");
+            return null;
+        }
+        Keypair client = _crypto.getKeypair(myKeysAlias);
+        if (client == null) {
+            System.out.println("No keys for alias " + myKeysAlias + "found!");
+            return null;
+        }
+
+        ZMQ.Socket s = _zContext.createSocket(type);
+        s.setCurvePublicKey(client.publicKey.getBytes());
+        s.setCurveSecretKey(client.privateKey.getBytes());
+        s.setCurveServerKey(server.publicKey.getBytes());
+        s.connect(addr);
+        return s;
+    }
+
+    /**
+     * Generate a Keypair of 256bit key for the Curve25519 elliptic curve.
+     * The keys are encoded in Z85 (a ascii85 variant).
+     * The keypair is also added to the store.
+     *
+     * @return keypair
+     */
+    public Keypair generateZ85Keypair(String alias) {
+        Curve curve = new Curve();
+        String[] keys = curve.keypairZ85();
+        Keypair kp = new Keypair(alias, keys[1], keys[0]);
+        _crypto.addKeypair(kp);
+        return kp;
+    }
+
+    public void addForeignKeypair(String alias, String publicKey) {
+        _crypto.addKeypair(new Keypair(alias, null, publicKey));
+    }
+
+    /**
+     * @param alias alias
+     * @return keypair or null if not found
+     */
+    public Keypair getKeypair(String alias) {
+        return _crypto.getKeypair(alias);
+    }
+
+    public boolean removeKeypair(String alias) {
+        return _crypto.removeKeypair(alias);
+    }
+
+    public boolean groupIsAvailable(String groupName) {
+        return _crypto.hasKeyForGroup(groupName);
+    }
+
+    /**
      * Send a single message to a group
      * Builds batch list with a single batch with a single transaction in it.
      *
@@ -64,16 +160,6 @@ public class HyperZMQ {
         // Wrap the message - the complete envelope will be encrypted
         Envelope envelope = new Envelope(_clientID, MESSAGETYPE_TEXT, message);
         return sendSingleEnvelope(groupName, envelope);
-    }
-
-    /**
-     * Generate a Keypair of 256bit key for the Curve25519 elliptic curve.
-     * The keys are encoded in Z85 (a ascii85 variant).
-     *
-     * @return keypair
-     */
-    public Keypair generateZ85Keypair() {
-        return NativeZMQSocket.getZ85Keypair();
     }
 
     /**
@@ -261,7 +347,7 @@ public class HyperZMQ {
      * @param group            group name
      * @param encryptedMessage encrypted message
      */
-    void newEventReceived(String group, String encryptedMessage) {
+    synchronized void newEventReceived(String group, String encryptedMessage) {
         String plainMessage;
         try {
             plainMessage = _crypto.decrypt(encryptedMessage, group);
@@ -296,7 +382,7 @@ public class HyperZMQ {
     }
 
     /**
-     * IT'S IMPORTANT TO CALL THIS METHOD WHEN FINISHED WITH THIS INSTANCE AND YOU STILL WANT TO CONTINUE.
+     * CALL THIS METHOD WHEN FINISHED WITH THIS INSTANCE AND YOU STILL WANT TO CONTINUE.
      * STOPS ALL THREADS RELATED TO THIS INSTANCE
      */
     public void close() {

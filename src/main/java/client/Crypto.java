@@ -15,7 +15,6 @@ import javax.crypto.spec.SecretKeySpec;
 import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
 import java.util.*;
-import java.util.function.Predicate;
 
 import static client.Storage.*;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -90,6 +89,10 @@ class Crypto {
         final byte[] raw = new byte[KEY_LENGTH];
         new SecureRandom().nextBytes(raw);
         return new SecretKeySpec(raw, "AES");
+    }
+
+    String getSawtoothPublicKey() {
+        return _signer.getPublicKey().hex();
     }
 
     String encrypt(String plainText, String group) throws GeneralSecurityException, IllegalStateException {

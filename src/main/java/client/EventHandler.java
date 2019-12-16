@@ -1,7 +1,6 @@
 package client;
 
 import com.google.protobuf.InvalidProtocolBufferException;
-
 import org.zeromq.ZContext;
 import org.zeromq.ZMQ;
 import sawtooth.sdk.protobuf.*;
@@ -10,7 +9,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static client.HyperZMQ.*;
+import static client.HyperZMQ.CSVSTRINGS_NAMESPACE_PREFIX;
 
 class EventHandler {
     private final HyperZMQ _hyperzmq;

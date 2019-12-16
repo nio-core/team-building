@@ -14,36 +14,19 @@
 
 package sawtooth.sdk.processor;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
-
 import sawtooth.sdk.messaging.Future;
 import sawtooth.sdk.messaging.Stream;
 import sawtooth.sdk.processor.exceptions.InternalError;
 import sawtooth.sdk.processor.exceptions.InvalidTransactionException;
 import sawtooth.sdk.processor.exceptions.ValidatorConnectionError;
-import sawtooth.sdk.protobuf.Event;
+import sawtooth.sdk.protobuf.*;
 import sawtooth.sdk.protobuf.Event.Attribute;
 import sawtooth.sdk.protobuf.Event.Builder;
-import sawtooth.sdk.protobuf.Message;
-import sawtooth.sdk.protobuf.TpEventAddRequest;
-import sawtooth.sdk.protobuf.TpEventAddResponse;
-import sawtooth.sdk.protobuf.TpReceiptAddDataRequest;
-import sawtooth.sdk.protobuf.TpReceiptAddDataResponse;
-import sawtooth.sdk.protobuf.TpStateDeleteRequest;
-import sawtooth.sdk.protobuf.TpStateDeleteResponse;
-import sawtooth.sdk.protobuf.TpStateEntry;
-import sawtooth.sdk.protobuf.TpStateGetRequest;
-import sawtooth.sdk.protobuf.TpStateGetResponse;
-import sawtooth.sdk.protobuf.TpStateSetRequest;
-import sawtooth.sdk.protobuf.TpStateSetResponse;
+
+import java.util.*;
+import java.util.Map.Entry;
 
 /**
  * Client state that interacts with the context manager through Stream

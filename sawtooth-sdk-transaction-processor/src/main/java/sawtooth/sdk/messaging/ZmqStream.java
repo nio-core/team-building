@@ -14,15 +14,14 @@
 
 package sawtooth.sdk.messaging;
 
+import com.google.protobuf.ByteString;
+import sawtooth.sdk.protobuf.Message;
+
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-
-import com.google.protobuf.ByteString;
-
-import sawtooth.sdk.protobuf.Message;
 
 /**
  * A ZMQ implementation of client networking class.

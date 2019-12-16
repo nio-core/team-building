@@ -2,26 +2,25 @@ package client;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
+import com.google.protobuf.ByteString;
 import contracts.Contract;
 import contracts.ContractProcessor;
 import contracts.ContractReceipt;
 import org.zeromq.ZContext;
 import org.zeromq.ZMQ;
 import sawtooth.sdk.protobuf.Transaction;
+import zmq.io.mechanism.curve.Curve;
 
+import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.*;
 
 import static client.Envelope.*;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import zmq.io.mechanism.curve.Curve;
-
-import javax.annotation.Nullable;
-
 public class HyperZMQ {
 
-    static final String CSVSTRINGS_NAMESPACE_PREFIX = "2f9d35";
+    public static final String CSVSTRINGS_NAMESPACE_PREFIX = "2f9d35";
 
     private EventHandler _eventHandler;
     private Crypto _crypto;
@@ -57,16 +56,25 @@ public class HyperZMQ {
     }
 
     /**
+     * The the URL of the RestAPI to something else than localhost
+     *
+     * @param url base URL of the rest api
+     */
+    public void setRestAPIUrl(String url) {
+        _blockchainHelper.setRestAPIUrl(url);
+    }
+
+    /**
      * Create a socket with encryption set up as a server which binds.
      * (Other clients need this clients public key to create a socket which can
-     *  receive from the one created)
+     * receive from the one created)
      *
      * @param type        type of socket
      * @param myKeysAlias alias for this clients key
      * @param addr        address to call bind for
      * @return socket or null if error
      */
-    public ZMQ.Socket createServerSocket(int type, String myKeysAlias, String addr) {
+    public ZMQ.Socket makeServerSocket(int type, String myKeysAlias, String addr) {
         Keypair kp = _crypto.getKeypair(myKeysAlias);
         if (kp == null) {
             System.out.println("No keys for alias " + myKeysAlias + "found!");
@@ -90,7 +98,7 @@ public class HyperZMQ {
      * @param addr          address to call connect for
      * @return socket or null if error
      */
-    public ZMQ.Socket createClientSocket(int type, String myKeysAlias, String theirKeyAlias, String addr) {
+    public ZMQ.Socket makeClientSocket(int type, String myKeysAlias, String theirKeyAlias, String addr) {
         Keypair server = _crypto.getKeypair(theirKeyAlias);
         if (server == null) {
             System.out.println("No keys for alias " + theirKeyAlias + "found!");
@@ -146,6 +154,51 @@ public class HyperZMQ {
     }
 
     /**
+     * Query the given address of the global state.
+     *
+     * @param addr address to query (70 hex chars)
+     * @return response or null if error
+     */
+    public Envelope queryStateAdress(String addr) {
+        try {
+            // The data is stored in Base64, decode it first
+            String raw = _blockchainHelper.queryStateAddress(addr);
+            if (raw == null) {
+                return null;
+            }
+            byte[] bytes = Base64.getDecoder().decode(raw);
+            String data = new String(bytes, UTF_8);
+
+            // Now we have <group>,<decrypted msg>
+            String[] strings = data.split(",");
+            if (strings.length < 2) {
+                System.out.println("Queried data format is incorrect: " + data);
+                return null;
+            }
+            if (!_crypto.hasKeyForGroup(strings[0])) {
+                System.out.println("Can't decrypt queried data, because key is missing for group: " + strings[0]);
+                return null;
+            }
+
+            try {
+                String clearText = _crypto.decrypt(strings[1], strings[0]);
+                return new Gson().fromJson(clearText, Envelope.class);
+            } catch (GeneralSecurityException e) {
+                e.printStackTrace();
+                return null;
+            } catch (JsonSyntaxException e) {
+                System.out.println("Queried data could not be deserialized to Envelope");
+            }
+
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
+
+        return null;
+    }
+
+    /**
      * Send a single message to a group
      * Builds batch list with a single batch with a single transaction in it.
      *
@@ -159,7 +212,7 @@ public class HyperZMQ {
         }
         // Wrap the message - the complete envelope will be encrypted
         Envelope envelope = new Envelope(_clientID, MESSAGETYPE_TEXT, message);
-        return sendSingleEnvelope(groupName, envelope);
+        return sendSingleEnvelope(groupName, envelope, null);
     }
 
     /**
@@ -200,9 +253,9 @@ public class HyperZMQ {
         return sendEnvelopeList(list);
     }
 
-    private boolean sendSingleEnvelope(String group, Envelope envelope) {
+    private boolean sendSingleEnvelope(String group, Envelope envelope, String outputAddr) {
         byte[] payloadBytes = encryptEnvelope(group, envelope);
-        List<Transaction> transactionList = Collections.singletonList(_blockchainHelper.buildTransaction(payloadBytes));
+        List<Transaction> transactionList = Collections.singletonList(_blockchainHelper.buildTransaction(payloadBytes, outputAddr));
         return _blockchainHelper.buildAndSendBatch(transactionList);
     }
 
@@ -230,17 +283,18 @@ public class HyperZMQ {
         }
         // Wrap the contract - the complete envelope will be encrypted
         Envelope envelope = new Envelope(_clientID, MESSAGETYPE_CONTRACT, contract.toString());
-        return sendSingleEnvelope(groupName, envelope);
+        return sendSingleEnvelope(groupName, envelope, contract.getOutputAddr());
     }
 
-    private boolean sendReceiptToChain(String groupName, ContractReceipt receipt) {
+    private boolean sendReceiptToChain(String groupName, ContractReceipt receipt, String resultOutputAddr) {
         if (groupName == null || receipt == null) {
             logprint("Empty group and/or receipt!");
             return false;
         }
 
         Envelope envelope = new Envelope(_clientID, MESSAGETYPE_CONTRACT_RECEIPT, receipt.toString());
-        return sendSingleEnvelope(groupName, envelope);
+        //System.out.println("Sending receipt to addr: " + resultOutputAddr);
+        return sendSingleEnvelope(groupName, envelope, resultOutputAddr);
     }
 
     public void addContractProcessor(ContractProcessor contractProcessor) {
@@ -389,6 +443,17 @@ public class HyperZMQ {
         _eventHandler.stopAllThreads();
     }
 
+    /**
+     * Return the public key of the current Sawtooth entity.
+     * Can be used to regulate permissions on the validator.
+     * (Could be denied or allowed)
+     *
+     * @return public key of the current entity in hex encoding
+     */
+    public String getSawtoothPublicKey() {
+        return _crypto.getSawtoothPublicKey();
+    }
+
     private void handleContractReceipt(String group, Envelope envelope) {
         ContractReceipt receipt;
         try {
@@ -431,7 +496,7 @@ public class HyperZMQ {
 
             // Process the result: Build a receipt to send back
             ContractReceipt receipt = new ContractReceipt(_clientID, String.valueOf(result), contract);
-            sendReceiptToChain(group, receipt);
+            sendReceiptToChain(group, receipt, contract.getResultOutputAddr());
         } else {
             //logprint("Contract was not for this client: " + contract);
         }

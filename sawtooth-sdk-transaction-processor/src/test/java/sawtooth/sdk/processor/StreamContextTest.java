@@ -1,35 +1,22 @@
 package sawtooth.sdk.processor;
 
+import com.google.protobuf.ByteString;
+import net.bytebuddy.utility.RandomString;
+import org.junit.Test;
+import sawtooth.sdk.messaging.FutureByteString;
+import sawtooth.sdk.messaging.Stream;
+import sawtooth.sdk.processor.exceptions.InternalError;
+import sawtooth.sdk.processor.exceptions.InvalidTransactionException;
+import sawtooth.sdk.protobuf.*;
+
+import java.io.UnsupportedEncodingException;
+import java.util.*;
+
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-
-import java.io.UnsupportedEncodingException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
-import org.junit.Test;
-
-import com.google.protobuf.ByteString;
-
-import net.bytebuddy.utility.RandomString;
-import sawtooth.sdk.messaging.FutureByteString;
-import sawtooth.sdk.messaging.Stream;
-import sawtooth.sdk.processor.exceptions.InternalError;
-import sawtooth.sdk.processor.exceptions.InvalidTransactionException;
-import sawtooth.sdk.protobuf.TpEventAddResponse;
-import sawtooth.sdk.protobuf.TpReceiptAddDataResponse;
-import sawtooth.sdk.protobuf.TpStateDeleteResponse;
-import sawtooth.sdk.protobuf.TpStateEntry;
-import sawtooth.sdk.protobuf.TpStateGetResponse;
-import sawtooth.sdk.protobuf.TpStateSetResponse;
 
 public class StreamContextTest {
 

@@ -1,6 +1,8 @@
 package contracts;
 
+import client.HyperZMQ;
 import com.google.gson.Gson;
+import sawtooth.sdk.processor.Utils;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -16,6 +18,8 @@ public class Contract {
     private final String requestedProcessor;
     private final String operation;
     private final List<String> args;
+    private final String outputAddr; // Address this contract is written to
+    private final String resultOutputAddr; // Address the result of this contract should be written to
 
     public Contract(@Nonnull String issuer, @Nullable String requestedProcessor, @Nonnull String operation, @Nullable List<String> args) {
         this.issuer = issuer;
@@ -23,6 +27,13 @@ public class Contract {
         this.args = args;
         this.contractID = UUID.randomUUID().toString();
         this.requestedProcessor = requestedProcessor != null ? requestedProcessor : REQUESTED_PROCESSOR_ANY;
+
+        // Generate output addresses to clients can track this contract
+        String idHash = Utils.hash512(contractID.getBytes());
+        this.outputAddr = HyperZMQ.CSVSTRINGS_NAMESPACE_PREFIX + idHash.substring(idHash.length() - 64);
+
+        String otherHash = Utils.hash512(UUID.randomUUID().toString().getBytes());
+        this.resultOutputAddr = HyperZMQ.CSVSTRINGS_NAMESPACE_PREFIX + otherHash.substring(otherHash.length() - 64);
     }
 
     public String getIssuer() {
@@ -43,6 +54,14 @@ public class Contract {
 
     public String getRequestedProcessor() {
         return requestedProcessor;
+    }
+
+    public String getOutputAddr() {
+        return outputAddr;
+    }
+
+    public String getResultOutputAddr() {
+        return resultOutputAddr;
     }
 
     @Override

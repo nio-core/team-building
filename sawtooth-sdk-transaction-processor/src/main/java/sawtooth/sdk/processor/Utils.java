@@ -14,10 +14,10 @@
 
 package sawtooth.sdk.processor;
 
+import javax.xml.bind.DatatypeConverter;
 import java.nio.charset.Charset;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import javax.xml.bind.DatatypeConverter;
 
 
 /**

@@ -84,18 +84,21 @@ public class CSVStringsHandler implements TransactionHandler {
         // The rest of the address format is up to the implementation
 
         String address;
-        if (header.getOutputsCount() > 0) {
-            // Check if output is given, write to that then
-            String allOutputs = header.getOutputsList().stream().reduce("", (a, c) -> a += c + ", ");
-            //print("Outputs: " + allOutputs);
-            address = header.getOutputs(0);
-            //print("Using output address: " + address);
-        } else {
-            // Otherwise use the message bytes as identifier for the remaining bytes
+
+        String output = header.getOutputs(0);
+        if (namespace.equals(output)) {
+            // Wildcard output, calculate an address in the namespace
+            // Use the message bytes as identifier for the remaining bytes
             String hashedMsg = Utils.hash512(message.getBytes(UTF_8));
             address = namespace + hashedMsg.substring(hashedMsg.length() - 64);
             //print("Address calculated as: " + address + "  (size=" + address.length() + ")");
+        } else {
+            // Concrete output, use that
+            //String allOutputs = header.getOutputsList().stream().reduce("", (a, c) -> a += c + ", ");
+            //print("All Outputs: " + allOutputs);
+            address = output;
         }
+        //print("Using address: " + address);
 
         // Fire event with the message //////////////////////////////////////
         // TODO which things to add to the event

@@ -13,8 +13,8 @@ public class PerfTest {
     private static final int TEST_REPITIONS = 5;
     private static final int TRANSACTION_PROCESSOR_COUNT = 1;
     static final int MAX_RECEIVE_COUNT = 1000;
-    static final int MESSAGE_SIZE_IN_BYTE = 50;
-    static final int MESSAGE_LIST_SIZE = 50;
+    static final int MESSAGE_SIZE_IN_BYTE = 250;
+    static final int MESSAGE_LIST_SIZE = 100;
     static final int SEND_MESSAGE_COUNT = 1000;
     static final boolean USE_BATCH_MESSAGE = true;
 

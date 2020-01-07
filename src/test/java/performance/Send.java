@@ -3,7 +3,6 @@ package performance;
 import client.HyperZMQ;
 import org.junit.Before;
 import org.junit.Test;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -26,6 +25,8 @@ public class Send {
             sb.append("A");
         }
         _message = sb.toString();
+
+        System.out.println("Message size: " + _message.getBytes().length);
         for (int i = 0; i < PerfTest.MESSAGE_LIST_SIZE; i++) {
             _messageList.add(_message);
         }

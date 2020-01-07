@@ -100,22 +100,6 @@ public class CSVStringsHandler implements TransactionHandler {
         }
         //print("Using address: " + address);
 
-        // Fire event with the message //////////////////////////////////////
-        // TODO which things to add to the event
-        //Map.Entry<String, String> e = new AbstractMap.SimpleEntry<>("signerPublicKey", header.getSignerPublicKey());
-        //Collection<Map.Entry<String, String>> collection = Arrays.asList(e);
-        //String signerPub = header.getSignerPublicKey();
-        //print("signer Public key: " + signerPub);
-
-        Map.Entry<String, String> e = new AbstractMap.SimpleEntry<>("address", address);
-        Collection<Map.Entry<String, String>> collection = Arrays.asList(e);
-        try {
-            context.addEvent(group, collection, tpProcessRequest.getPayload());
-        } catch (InternalError internalError) {
-            internalError.printStackTrace();
-        }
-        /////////////////////////////////////////////////////////////////////
-
         //checkStateAtAddress(address, context); // optional
 
         // Prepare the message to be set
@@ -132,6 +116,23 @@ public class CSVStringsHandler implements TransactionHandler {
         }
         //print("Returned Addresses from setting new value:");
         //returnedAddresses.forEach(this::print);
+
+
+        // Fire event with the message //////////////////////////////////////
+        // TODO which things to add to the event
+        //Map.Entry<String, String> e = new AbstractMap.SimpleEntry<>("signerPublicKey", header.getSignerPublicKey());
+        //Collection<Map.Entry<String, String>> collection = Arrays.asList(e);
+        //String signerPub = header.getSignerPublicKey();
+        //print("signer Public key: " + signerPub);
+
+        Map.Entry<String, String> e = new AbstractMap.SimpleEntry<>("address", address);
+        Collection<Map.Entry<String, String>> collection = Arrays.asList(e);
+        try {
+            context.addEvent(group, collection, tpProcessRequest.getPayload());
+        } catch (InternalError internalError) {
+            internalError.printStackTrace();
+        }
+        /////////////////////////////////////////////////////////////////////
     }
 
     private void checkStateAtAddress(String address, Context context) {

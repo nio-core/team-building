@@ -159,7 +159,7 @@ public class HyperZMQ {
      * @param addr address to query (70 hex chars)
      * @return response or null if error
      */
-    public Envelope queryStateAdress(String addr) {
+    public Envelope queryStateAddress(String addr) {
         try {
             // The data is stored in Base64, decode it first
             String raw = _blockchainHelper.queryStateAddress(addr);

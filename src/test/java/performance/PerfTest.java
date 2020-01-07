@@ -10,10 +10,10 @@ import java.util.List;
 
 public class PerfTest {
     // ----------------------- CONFIGURATION -----------------------
-    private static final int TEST_REPITIONS = 5;
+    private static final int TEST_REPITIONS = 10;
     private static final int TRANSACTION_PROCESSOR_COUNT = 1;
     static final int MAX_RECEIVE_COUNT = 1000;
-    static final int MESSAGE_SIZE_IN_BYTE = 250;
+    static final int MESSAGE_SIZE_IN_BYTE = 30000;
     static final int MESSAGE_LIST_SIZE = 100;
     static final int SEND_MESSAGE_COUNT = 1000;
     static final boolean USE_BATCH_MESSAGE = true;
@@ -65,20 +65,26 @@ public class PerfTest {
             sleep(5000);
         }
         DecimalFormat df = new DecimalFormat("####.###");
-
         System.out.println("\nReceive List [ms]: " + receiveTimes);
         Double recvAvg = receiveTimes.stream().mapToLong(Long::longValue).average().getAsDouble();
+        Double recvMsgSec = SEND_MESSAGE_COUNT / (recvAvg / 1000);
+        Double recvMbSec = ((recvMsgSec * MESSAGE_SIZE_IN_BYTE) / 1024) / 1024;
         System.out.println("Min=" + receiveTimes.stream().min(Long::compare).get()
                 + "ms Max=" + receiveTimes.stream().max(Long::compare).get()
                 + "ms Avg=" + recvAvg
-                + "ms\n==> " + df.format(SEND_MESSAGE_COUNT / (recvAvg / 1000)) + " msg/sec received");
-        System.out.println("--------------------------------------------------------");
+                + "ms\n==> " + df.format(recvMsgSec) + " msg/sec received"
+                + "==> " + df.format(recvMbSec) + "mb/s");
+        //System.out.println("--------------------------------------------------------");
+        System.out.println();
         System.out.println("Send List: " + sendTimes);
         Double sendAvg = sendTimes.stream().mapToLong(Long::longValue).average().getAsDouble();
+        Double sendMsgSec = SEND_MESSAGE_COUNT / (sendAvg / 1000);
+        Double sendMbSec = ((sendMsgSec * MESSAGE_SIZE_IN_BYTE) / 1024) / 1024;
         System.out.println("Min=" + sendTimes.stream().min(Long::compare).get()
                 + "ms Max=" + sendTimes.stream().max(Long::compare).get()
                 + "ms Avg=" + sendAvg +
-                "ms\n==> " + df.format(SEND_MESSAGE_COUNT / (sendAvg / 1000)) + " msg/sec send");
+                "ms\n==> " + df.format(sendMsgSec) + " msg/sec send"
+                + "==> " + df.format(sendMbSec) + "mb/s");
     }
 
     private void sleep(int ms) {

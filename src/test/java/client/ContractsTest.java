@@ -90,7 +90,7 @@ public class ContractsTest {
         // No callback - wait some secs and check the result address to see if client1 processed it
         sleep(3000);
         //System.out.println(client1.queryStateAdress(outputAddr));
-        Envelope e = client1.queryStateAdress(resultAddr);
+        Envelope e = client1.queryStateAddress(resultAddr);
         assertNotNull(e);
         assertEquals(Envelope.MESSAGETYPE_CONTRACT_RECEIPT, e.getType());
         assertEquals("client1", e.getSender());

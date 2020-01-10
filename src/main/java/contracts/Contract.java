@@ -28,7 +28,7 @@ public class Contract {
         this.contractID = UUID.randomUUID().toString();
         this.requestedProcessor = requestedProcessor != null ? requestedProcessor : REQUESTED_PROCESSOR_ANY;
 
-        // Generate output addresses to clients can track this contract
+        // Generate output addresses so clients can track this contract
         String idHash = Utils.hash512(contractID.getBytes());
         this.outputAddr = HyperZMQ.CSVSTRINGS_NAMESPACE_PREFIX + idHash.substring(idHash.length() - 64);
 

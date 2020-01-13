@@ -3,9 +3,11 @@ package client;
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
 import com.google.protobuf.ByteString;
+import com.sun.tools.doclint.Env;
 import contracts.Contract;
 import contracts.ContractProcessor;
 import contracts.ContractReceipt;
+import jdk.internal.jline.internal.Nullable;
 import org.zeromq.ZContext;
 import org.zeromq.ZMQ;
 import sawtooth.sdk.protobuf.Transaction;
@@ -30,6 +32,7 @@ public class HyperZMQ {
     private Map<String, ContractProcessingCallback> _contractCallbacks = new HashMap<>(); // key is the contractID
     private BlockchainHelper _blockchainHelper;
     private ZContext _zContext = new ZContext();
+    private boolean _passthroughAll = false;
 
     /**
      * @param id               id
@@ -199,6 +202,16 @@ public class HyperZMQ {
     }
 
     /**
+     * Set to true to get a callback for ALL messages in groups (incl contracts and receipts), not just text.
+     * If true, the callback's message can contain Contract and ContractReceipt objects in serialized form (JSON).
+     *
+     * @param value value to set
+     */
+    void setPassthroughAllMessages(boolean value) {
+        _passthroughAll = value;
+    }
+
+    /**
      * Send a single message to a group
      * Builds batch list with a single batch with a single transaction in it.
      *
@@ -274,6 +287,28 @@ public class HyperZMQ {
             _contractCallbacks.put(contract.getContractID(), callback);
         }
         return sendContractToChain(groupName, contract);
+    }
+
+    /**
+     * Send a list of contracts and callbacks (can be null) in a group
+     * @param groupName group name
+     * @param map  map of contracts and callback
+     * @return success
+     */
+    public boolean sendContractsToChain(String groupName, Map<Contract, ContractProcessingCallback> map) {
+        if (groupName == null || map.isEmpty()) {
+            logprint("Empty group and/or contracts");
+            return false;
+        }
+        List<Envelope> envelopes = new ArrayList<>();
+        map.forEach((contract, callback) -> {
+            Envelope e = new Envelope(_clientID, MESSAGETYPE_CONTRACT, contract.toString());
+            envelopes.add(e);
+            if (callback != null) {
+                _contractCallbacks.put(contract.getContractID(), callback);
+            }
+        });
+        return sendEnvelopeList(Collections.singletonMap(groupName, envelopes));
     }
 
     public boolean sendContractToChain(String groupName, Contract contract) {
@@ -419,6 +454,9 @@ public class HyperZMQ {
         switch (envelope.getType()) {
             case MESSAGETYPE_CONTRACT: {
                 handleContractMessage(group, envelope);
+                if (_passthroughAll) {
+                    handleTextMessage(group, envelope);
+                }
                 break;
             }
             case MESSAGETYPE_TEXT: {
@@ -427,6 +465,9 @@ public class HyperZMQ {
             }
             case MESSAGETYPE_CONTRACT_RECEIPT: {
                 handleContractReceipt(group, envelope);
+                if (_passthroughAll) {
+                    handleTextMessage(group, envelope);
+                }
                 break;
             }
             default:

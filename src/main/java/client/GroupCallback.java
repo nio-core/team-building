@@ -1,5 +1,5 @@
 package client;
 
-public interface SubscriptionCallback {
+public interface GroupCallback {
     void newMessageOnChain(String group, String message, String senderID);
 }

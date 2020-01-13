@@ -2,7 +2,6 @@ package client;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
-import com.google.protobuf.ByteString;
 import contracts.Contract;
 import contracts.ContractProcessor;
 import contracts.ContractReceipt;
@@ -26,7 +25,7 @@ public class HyperZMQ {
     private Crypto _crypto;
     private String _clientID;
     private List<ContractProcessor> _contractProcessors = new ArrayList<>();
-    private Map<String, List<SubscriptionCallback>> _textmessageCallbacks = new HashMap<>();
+    private Map<String, List<GroupCallback>> _textmessageCallbacks = new HashMap<>();
     private Map<String, ContractProcessingCallback> _contractCallbacks = new HashMap<>(); // key is the contractID
     private BlockchainHelper _blockchainHelper;
     private ZContext _zContext = new ZContext();
@@ -344,7 +343,7 @@ public class HyperZMQ {
      * @param groupName group name
      * @param callback  callback that is called when a new message arrives
      */
-    public void createGroup(String groupName, SubscriptionCallback callback) {
+    public void createGroup(String groupName, GroupCallback callback) {
         _crypto.createGroup(groupName);
         if (callback != null) {
             putCallback(groupName, callback);
@@ -369,7 +368,7 @@ public class HyperZMQ {
      * @param key       the key in Base64
      * @param callback  callback to be called when a new messages arrives
      */
-    public void addGroup(String groupName, String key, SubscriptionCallback callback) {
+    public void addGroup(String groupName, String key, GroupCallback callback) {
         _crypto.addGroup(groupName, key);
         if (callback != null) {
             putCallback(groupName, callback);
@@ -395,7 +394,7 @@ public class HyperZMQ {
      * @param callback  callback to add
      * @return true if successful, false if error or already existent
      */
-    public boolean addCallbackToGroup(String groupName, SubscriptionCallback callback) {
+    public boolean addCallbackToGroup(String groupName, GroupCallback callback) {
         return putCallback(groupName, callback);
     }
 
@@ -544,17 +543,17 @@ public class HyperZMQ {
 
     private void handleTextMessage(String group, Envelope envelope) {
         // Send the message to all subscribers of that group
-        List<SubscriptionCallback> list = _textmessageCallbacks.get(group);
+        List<GroupCallback> list = _textmessageCallbacks.get(group);
         if (list != null) {
             //logprint("Callback(s) found for the group...");
             list.forEach(c -> c.newMessageOnChain(group, envelope.getRawMessage(), envelope.getSender()));
         }
     }
 
-    private boolean putCallback(String groupName, SubscriptionCallback callback) {
+    private boolean putCallback(String groupName, GroupCallback callback) {
         //logprint("New subscription for group: " + groupName);
         if (_textmessageCallbacks.containsKey(groupName)) {
-            List<SubscriptionCallback> list = _textmessageCallbacks.get(groupName);
+            List<GroupCallback> list = _textmessageCallbacks.get(groupName);
             if (list.contains(callback)) {
                 //logprint("Subscription skipped, callback already registered.");
                 return false;
@@ -563,7 +562,7 @@ public class HyperZMQ {
                 //logprint("Subscription completed, callback registered to existing group.");
             }
         } else {
-            List<SubscriptionCallback> newList = new ArrayList<>();
+            List<GroupCallback> newList = new ArrayList<>();
             newList.add(callback);
             _textmessageCallbacks.put(groupName, newList);
             return true;

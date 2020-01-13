@@ -160,8 +160,7 @@ class BlockchainHelper {
         } catch (FileNotFoundException e) {
             System.out.println("Address did not match any resource");
             return null;
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             e.printStackTrace();
             return null;
         }
@@ -174,7 +173,7 @@ class BlockchainHelper {
 
     public String queryStateAddress(String addr) throws IOException {
         String resp = sendToRestEndpoint(("/state/" + addr), "GET", null);
-        if (resp != null){
+        if (resp != null) {
             JSONObject o = new JSONObject(resp);
             try {
                 return o.getString("data");

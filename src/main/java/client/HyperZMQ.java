@@ -38,9 +38,10 @@ public class HyperZMQ {
      * @param createNewStore   whether a new keystore should be created, if true a new signer (=blockchain identity)
      *                         and encryption key will be created
      */
-    public HyperZMQ(String id, String pathToKeyStore, String keystorePassword, boolean createNewStore) {
+    public HyperZMQ(String id, String pathToKeyStore, String keystorePassword, String dataFilePath, boolean createNewStore) {
         _clientID = id;
-        _crypto = new Crypto(this, pathToKeyStore, keystorePassword.toCharArray(), createNewStore);
+        //_crypto = new Crypto(this, pathToKeyStore, keystorePassword.toCharArray(), createNewStore);
+        _crypto = new Crypto(this, pathToKeyStore, keystorePassword.toCharArray(), dataFilePath, createNewStore);
         _eventHandler = new EventHandler(this);
         _blockchainHelper = new BlockchainHelper(this, _crypto.getSigner());
     }

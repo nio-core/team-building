@@ -37,17 +37,17 @@ class Crypto {
     private Storage _storage;
 
     /**
-     * Create a instance which loads the KeyStore from the given path (which should include <filename>.jks.
+     * Create a instance which loads the KeyStore and DataFile from the given path (which should include <filename>.jks. and <filename>.dat)
      *
      * @param keystorePath path the keystore
      * @param password     password of the keystore
      * @param createNew    whether to create a new keystore
      */
-    Crypto(HyperZMQ hyperZMQ, String keystorePath, char[] password, boolean createNew) {
+    Crypto(HyperZMQ hyperZMQ, String keystorePath, char[] password, String dataFilePath, boolean createNew) {
         this._keyStorePass = password;
         this._pathToKeyStore = keystorePath;
         this._hyperZMQ = hyperZMQ;
-        this._storage = new Storage(_pathToKeyStore, _keyStorePass, DEFAULT_DATA_PATH);
+        this._storage = new Storage(_pathToKeyStore, _keyStorePass, dataFilePath);
         if (createNew) {
             createNewCryptoMaterial();
         } else {
@@ -56,13 +56,13 @@ class Crypto {
     }
 
     /**
-     * Create a instance which loads the KeyStore from the default path.
+     * Create a instance which loads the KeyStore and DataFile from the default path.
      *
      * @param password  password of the keystore
      * @param createNew whether to create a new keystore
      */
     Crypto(HyperZMQ hyperZMQ, char[] password, boolean createNew) {
-        this(hyperZMQ, DEFAULT_KEYSTORE_PATH, password, createNew);
+        this(hyperZMQ, DEFAULT_KEYSTORE_PATH, password, null, createNew);
     }
 
     /**
@@ -209,7 +209,7 @@ class Crypto {
         // restore the curve keys, the data map does not contain the data encryption key anymore
         ArrayList<Keypair> tmp = new ArrayList<>();
         data.data.forEach((k, v) -> {
-            try{
+            try {
                 tmp.add(new Gson().fromJson(v, Keypair.class));
             } catch (JsonSyntaxException e) {
                 // TODO

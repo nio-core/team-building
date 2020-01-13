@@ -43,8 +43,8 @@ public class TextMessagesTest {
         CSVStringsTP.main(null);
         sleep(1000);
         HyperZMQ client1 = new HyperZMQ("Client1", "password", true);
-        HyperZMQ client2 = new HyperZMQ("Client2", "client2.jks", "drowssap", true);
-        HyperZMQ client3 = new HyperZMQ("Client3", "client3.jks", "drowssap", true);
+        HyperZMQ client2 = new HyperZMQ("Client2", "client2.jks", "drowssap", null, true);
+        HyperZMQ client3 = new HyperZMQ("Client3", "client3.jks", "drowssap", null, true);
         AtomicBoolean send12 = new AtomicBoolean(false);
         AtomicBoolean send13 = new AtomicBoolean(false);
         client1.createGroup("group12");
@@ -127,7 +127,7 @@ public class TextMessagesTest {
         CSVStringsTP.main(null);
         sleep(1000);
         HyperZMQ client1 = new HyperZMQ("Client1", "password", true);
-        HyperZMQ client2 = new HyperZMQ("Client2", "client2.jks", "drowssap", true);
+        HyperZMQ client2 = new HyperZMQ("Client2", "client2.jks", "drowssap", null, true);
         client1.createGroup(TESTGROUP);
         client2.addGroup(TESTGROUP, client1.getKeyForGroup(TESTGROUP));
 

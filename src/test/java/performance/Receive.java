@@ -15,7 +15,7 @@ public class Receive {
     public void receive() {
         System.out.println("Starting receiver in thread " + Thread.currentThread().getId());
 
-        HyperZMQ recvClient = new HyperZMQ("recvClient", "keystore2.jks", "password", true);
+        HyperZMQ recvClient = new HyperZMQ("recvClient", "keystore2.jks", "password", null, true);
         recvClient.addGroup("testgroup", GROUP_KEY);
         recvClient.addCallbackToGroup("testgroup", (group, message, senderID) -> {
             if (_startTime == 0) {

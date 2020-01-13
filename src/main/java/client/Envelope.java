@@ -22,7 +22,9 @@ public class Envelope {
         this.uuid = UUID.randomUUID().toString();
     }
 
-    public String getUUID() { return uuid; }
+    public String getUUID() {
+        return uuid;
+    }
 
     public String getType() {
         return type;

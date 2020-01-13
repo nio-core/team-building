@@ -34,10 +34,10 @@ services:
     # start the validator with an empty genesis batch
     entrypoint: "bash -c \"\
         sawadm keygen && \
-        sawtooth keygen my_key && \
-        sawset genesis -k /root/.sawtooth/keys/my_key.priv && \
+        sawtooth keygen root && \
+        sawset genesis -k /root/.sawtooth/keys/root.priv && \
         sawset proposal create \
-          -k /root/.sawtooth/keys/my_key.priv \
+          -k /root/.sawtooth/keys/root.priv \
           sawtooth.consensus.algorithm.name=Devmode \
           sawtooth.consensus.algorithm.version=0.1 \
           -o config.batch && \
@@ -74,3 +74,10 @@ services:
         sawtooth keygen && \
         tail -f /dev/null \
         \""
+    
+  identity:
+    image: hyperledger/sawtooth-identity-tp:chime
+    container_name: sawtooth-identity-tp
+    depends_on:
+      - validator
+    entrypoint: identity-tp -vv -C tcp://validator:4004

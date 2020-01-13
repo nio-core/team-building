@@ -15,10 +15,10 @@ public class EncryptedSocketTest {
         hyper.generateZ85Keypair("server");
         hyper.generateZ85Keypair("client");
 
-        ZMQ.Socket server = hyper.makeServerSocket(ZMQ.PUSH, "server", "tcp://*:7210");
+        ZMQ.Socket server = hyper.makeServerSocket(ZMQ.PUSH, "server", "tcp://*:7210", null);
         assertNotNull(server);
 
-        ZMQ.Socket client = hyper.makeClientSocket(ZMQ.PULL, "client", "server", "tcp://127.0.0.1:7210");
+        ZMQ.Socket client = hyper.makeClientSocket(ZMQ.PULL, "client", "server", "tcp://127.0.0.1:7210", null);
         assertNotNull(client);
 
         server.send("test message");

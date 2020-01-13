@@ -73,16 +73,23 @@ public class HyperZMQ {
      * @param type        type of socket
      * @param myKeysAlias alias for this clients key
      * @param addr        address to call bind for
+     * @param context     context socket is bound to, can be null to use HyperZMQ's context
      * @return socket or null if error
      */
-    public ZMQ.Socket makeServerSocket(int type, String myKeysAlias, String addr) {
+    public ZMQ.Socket makeServerSocket(int type, String myKeysAlias, String addr, ZContext context) {
         Keypair kp = _crypto.getKeypair(myKeysAlias);
         if (kp == null) {
             System.out.println("No keys for alias " + myKeysAlias + "found!");
             return null;
         }
 
-        ZMQ.Socket s = _zContext.createSocket(type);
+        ZMQ.Socket s;
+        if (context == null) {
+            s = _zContext.createSocket(type);
+        } else {
+            s = context.createSocket(type);
+        }
+
         s.setAsServerCurve(true);
         s.setCurvePublicKey(kp.publicKey.getBytes());
         s.setCurveSecretKey(kp.privateKey.getBytes());
@@ -97,9 +104,10 @@ public class HyperZMQ {
      * @param myKeysAlias   alias for this clients key
      * @param theirKeyAlias alias for the key of entity we want to receive from
      * @param addr          address to call connect for
+     * @param context       context socket is bound to, can be null to use HyperZMQ's context
      * @return socket or null if error
      */
-    public ZMQ.Socket makeClientSocket(int type, String myKeysAlias, String theirKeyAlias, String addr) {
+    public ZMQ.Socket makeClientSocket(int type, String myKeysAlias, String theirKeyAlias, String addr, ZContext context) {
         Keypair server = _crypto.getKeypair(theirKeyAlias);
         if (server == null) {
             System.out.println("No keys for alias " + theirKeyAlias + "found!");
@@ -111,7 +119,13 @@ public class HyperZMQ {
             return null;
         }
 
-        ZMQ.Socket s = _zContext.createSocket(type);
+        ZMQ.Socket s;
+        if (context == null) {
+            s = _zContext.createSocket(type);
+        } else {
+            s = context.createSocket(type);
+        }
+
         s.setCurvePublicKey(client.publicKey.getBytes());
         s.setCurveSecretKey(client.privateKey.getBytes());
         s.setCurveServerKey(server.publicKey.getBytes());
@@ -289,8 +303,9 @@ public class HyperZMQ {
 
     /**
      * Send a list of contracts and callbacks (can be null) in a group
+     *
      * @param groupName group name
-     * @param map  map of contracts and callback
+     * @param map       map of contracts and callback
      * @return success
      */
     public boolean sendContractsToChain(String groupName, Map<Contract, ContractProcessingCallback> map) {

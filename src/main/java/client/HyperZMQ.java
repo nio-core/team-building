@@ -29,6 +29,11 @@ public class HyperZMQ {
     private Map<String, ContractProcessingCallback> _contractCallbacks = new HashMap<>(); // key is the contractID
     private BlockchainHelper _blockchainHelper;
     private ZContext _zContext = new ZContext();
+
+    // if this is set, passes all contract messages received in a group to all callbacks that are registered
+    // also invokes the group callback with ContractReceipt additionally to the ReceiptCallback
+    // (i.e. receipts for other clients will invoke group callbacks if this is set)
+    // by default, the contract processing is done without invoking any callback
     private boolean _passthroughAll = false;
 
     /**

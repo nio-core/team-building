@@ -14,11 +14,11 @@ import static client.HyperZMQ.CSVSTRINGS_NAMESPACE_PREFIX;
 class EventHandler {
     private final HyperZMQ _hyperzmq;
     private boolean _runEventReceiver = true;
-    private static final String CORRELATION_ID = "123";
+    static final String CORRELATION_ID = "123";
 
     //TODO: Adding a identifier(groupName) for which event the subscription is and to cancel them individually
     private Map<Thread, AtomicBoolean> _subscriptionListeners = new HashMap<>();
-    private static final String DEFAULT_VALIDATOR_URL = "tcp://localhost:4004";
+    static final String DEFAULT_VALIDATOR_URL = "tcp://192.168.178.124:4004";
     private String validatorURL = "";
 
     EventHandler(HyperZMQ callback) {
@@ -201,6 +201,7 @@ class EventHandler {
                     Message msg = Message.parseFrom(recv);
                     if (msg.getMessageType() != Message.MessageType.CLIENT_EVENTS) {
                         _hyperzmq.logprint("received event message is not of type event!");
+                        _hyperzmq.logprint("message: " + msg.toString());
                     }
 
                     EventList list = EventList.parseFrom(msg.getContent());

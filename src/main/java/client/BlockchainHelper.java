@@ -1,8 +1,11 @@
 package client;
 
 import com.google.protobuf.ByteString;
+import com.google.protobuf.InvalidProtocolBufferException;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.zeromq.ZContext;
+import org.zeromq.ZMQ;
 import sawtooth.sdk.processor.Utils;
 import sawtooth.sdk.protobuf.*;
 import sawtooth.sdk.signing.Signer;
@@ -16,24 +19,27 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-
 class BlockchainHelper {
-    private static final String DEFAULT_REST_URL = "http://localhost:8008";
+    private static final String DEFAULT_REST_URL = "http://192.168.178.124:8008";
     private String _baseRestAPIUrl;
     private Signer _signer;
     private HyperZMQ _hyperzmq;
     private boolean _printRESTAPIResponse = false;
 
-    BlockchainHelper(HyperZMQ hyperZMQ, Signer signer, String restAPIUrl) {
-        _hyperzmq = hyperZMQ;
-        _signer = signer;
-        _baseRestAPIUrl = restAPIUrl;
-    }
+    private ZContext _zctx = new ZContext();
+    private ZMQ.Socket _submitSocket;
 
     BlockchainHelper(HyperZMQ hyperZMQ, Signer signer) {
         _hyperzmq = hyperZMQ;
         _baseRestAPIUrl = DEFAULT_REST_URL;
         _signer = signer;
+
+        _submitSocket = _zctx.createSocket(ZMQ.DEALER);
+        _submitSocket.connect(EventHandler.DEFAULT_VALIDATOR_URL);
+    }
+
+    public void set_baseRestAPIUrl(String _baseRestAPIUrl) {
+        this._baseRestAPIUrl = _baseRestAPIUrl;
     }
 
     Transaction buildTransaction(byte[] payload) {
@@ -91,6 +97,7 @@ class BlockchainHelper {
                 .addAllTransactions(transactionList)
                 .setHeaderSignature(batchSignature)
                 .build();
+
         // Encode Batches in BatchList
         // The validator expects a batchlist (which is not atomic)
         byte[] batchListBytes = BatchList.newBuilder()
@@ -98,15 +105,34 @@ class BlockchainHelper {
                 .build()
                 .toByteArray();
 
+        return sendBatchListZMQ(batchListBytes);
+    }
+
+    private boolean sendBatchListZMQ(byte[] body) {
         try {
-            return sendBatchList(batchListBytes);
-        } catch (IOException e) {
+            ClientBatchSubmitRequest req = ClientBatchSubmitRequest.parseFrom(body);
+            System.out.println("ClientBatchSubmitRequest: " + req.toString());
+
+            Message message = Message.newBuilder()
+                    .setMessageType(Message.MessageType.CLIENT_BATCH_SUBMIT_REQUEST)
+                    .setContent(req.toByteString())
+                    .setCorrelationId(EventHandler.CORRELATION_ID)
+                    .build();
+
+            _submitSocket.send(message.toByteArray());
+            // Reponse is not very interesting
+            //byte[] bResponse = _submitSocket.recv();
+            //ClientBatchSubmitResponse cbsResp = ClientBatchSubmitResponse.parseFrom(bResponse);
+            //System.out.println("ClientBatchSubmitResponse: " + cbsResp);
+        } catch (InvalidProtocolBufferException e) {
             e.printStackTrace();
             return false;
         }
+
+        return true;
     }
 
-    private boolean sendBatchList(byte[] body) throws IOException {
+    private boolean sendBatchListRESTAPI(byte[] body) throws IOException {
         URL url = new URL(_baseRestAPIUrl + "/batches");
         URLConnection con = url.openConnection();
         HttpURLConnection http = (HttpURLConnection) con;

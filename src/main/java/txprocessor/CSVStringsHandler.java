@@ -57,7 +57,7 @@ public class CSVStringsHandler implements TransactionHandler {
         }
 
         String payloadStr = tpProcessRequest.getPayload().toString(UTF_8);
-        //print("Got payload: " + payloadStr);
+        print("Got payload: " + payloadStr);
 
         TransactionHeader header = tpProcessRequest.getHeader();
 
@@ -122,13 +122,14 @@ public class CSVStringsHandler implements TransactionHandler {
         // TODO which things to add to the event
         //Map.Entry<String, String> e = new AbstractMap.SimpleEntry<>("signerPublicKey", header.getSignerPublicKey());
         //Collection<Map.Entry<String, String>> collection = Arrays.asList(e);
-        //String signerPub = header.getSignerPublicKey();
+        String signerPub = header.getSignerPublicKey();
         //print("signer Public key: " + signerPub);
 
         Map.Entry<String, String> e = new AbstractMap.SimpleEntry<>("address", address);
         Collection<Map.Entry<String, String>> collection = Arrays.asList(e);
         try {
             context.addEvent(group, collection, tpProcessRequest.getPayload());
+            //print("Event triggered");
         } catch (InternalError internalError) {
             internalError.printStackTrace();
         }

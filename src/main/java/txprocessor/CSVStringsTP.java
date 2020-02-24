@@ -7,7 +7,7 @@ public class CSVStringsTP {
 
     public static void main(String[] args) {
         String url = "tcp://192.168.178.124:4004";
-        if (args.length >0) {
+        if (args != null && args.length > 0) {
             url = args[0];
         }
         // Connect the transaction processor to the validator

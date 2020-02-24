@@ -88,6 +88,7 @@ public class TextMessagesTest {
         AtomicBoolean c2received = new AtomicBoolean(false);
         String key = client1.getKeyForGroup(TESTGROUP);
         client2.addGroup(TESTGROUP, key);
+
         // The client receives its own messages because it subscribed to the group
         client1.addCallbackToGroup(TESTGROUP, ((group, message, sender) -> {
             System.out.println("[Client1] received: group=" + group + ", message=" + message + ", sender=" + sender);
@@ -97,6 +98,7 @@ public class TextMessagesTest {
             assertEquals("Client1", sender);
             c1received.set(true);
         }));
+
         // The other client receives the (encrypted) messages too, because it has the key for the group
         // and subscribed to the group
         client2.addCallbackToGroup(TESTGROUP, (group, message, sender) -> {

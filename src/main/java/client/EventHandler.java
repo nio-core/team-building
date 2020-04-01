@@ -9,20 +9,18 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static client.HyperZMQ.CSVSTRINGS_NAMESPACE_PREFIX;
-
 class EventHandler {
-    private final HyperZMQ _hyperzmq;
-    private boolean _runEventReceiver = true;
+    private final HyperZMQ hyperzmq;
+    private boolean runEventReceiver = true;
     static final String CORRELATION_ID = "123";
 
     //TODO: Adding a identifier(groupName) for which event the subscription is and to cancel them individually
-    private Map<Thread, AtomicBoolean> _subscriptionListeners = new HashMap<>();
-    static final String DEFAULT_VALIDATOR_URL = "tcp://192.168.178.124:4004";
+    private Map<Thread, AtomicBoolean> subscriptionListeners = new HashMap<>();
+    static final String DEFAULT_VALIDATOR_URL = "tcp://127.0.0.1:4004";
     private String validatorURL = "";
 
     EventHandler(HyperZMQ callback) {
-        this._hyperzmq = callback;
+        this.hyperzmq = callback;
 //        ZMQ.Socket blockIDSocket = subscribe(EventFilter.FilterType.REGEX_ANY, "sawtooth/block-commit", "tcp://localhost:4004");
 //        if (blockIDSocket != null) {
 //            receiveCommitEvents(blockIDSocket);
@@ -35,7 +33,7 @@ class EventHandler {
     void subscribeToGroup(String groupName) {
         //ZMQ.Socket socket = subscribe(EventFilter.FilterType.REGEX_ANY, groupName, DEFAULT_VALIDATOR_URL);
         //if (socket != null) {
-        _hyperzmq.logprint("Subscribing to group: " + groupName);
+        hyperzmq.print("Subscribing to group: " + groupName);
         receiveGroupEvents(groupName);
         //} else {
         //  _hyperzmq.logprint("Could not open subscription socket for group: " + groupName);
@@ -51,20 +49,20 @@ class EventHandler {
                 try {
                     Message msg = Message.parseFrom(recv);
                     if (msg.getMessageType() != Message.MessageType.CLIENT_EVENTS) {
-                        _hyperzmq.logprint("received event message is not of type event!");
+                        hyperzmq.print("received event message is not of type event!");
                     }
                     //System.out.println("Message: " + msg.toString());
                     EventList list = EventList.parseFrom(msg.getContent());
                     for (Event e : list.getEventsList()) {
                         String received = e.toString();
-                        _hyperzmq.logprint("[sawtooth/block-commit] " + received);
+                        hyperzmq.print("[sawtooth/block-commit] " + received);
                     }
                 } catch (InvalidProtocolBufferException e) {
                     e.printStackTrace();
                 }
             }
         });
-        _subscriptionListeners.put(t, atomicBoolean);
+        subscriptionListeners.put(t, atomicBoolean);
         t.start();
     }
 
@@ -108,7 +106,7 @@ class EventHandler {
             e.printStackTrace();
         }
         if (respMsg == null || respMsg.getMessageType() != sawtooth.sdk.protobuf.Message.MessageType.CLIENT_EVENTS_SUBSCRIBE_RESPONSE) {
-            _hyperzmq.logprint("Response was no subscription response");
+            hyperzmq.print("Response was no subscription response");
             return null;
         }
         ClientEventsSubscribeResponse cesr = null;
@@ -118,11 +116,11 @@ class EventHandler {
             e.printStackTrace();
         }
         if (cesr == null) {
-            _hyperzmq.logprint("ClientEventsSubscribeResponse is null");
+            hyperzmq.print("ClientEventsSubscribeResponse is null");
             return null;
         }
         if (cesr.getStatus() != ClientEventsSubscribeResponse.Status.OK) {
-            _hyperzmq.logprint("Subscribing failed: " + cesr.getResponseMessage());
+            hyperzmq.print("Subscribing failed: " + cesr.getResponseMessage());
             return null;
         }
         return socket;
@@ -141,7 +139,7 @@ class EventHandler {
             //_hyperzmq.logprint("Subscribing...");
             EventFilter eventFilter = EventFilter.newBuilder()
                     .setKey("address")
-                    .setMatchString(CSVSTRINGS_NAMESPACE_PREFIX + "*")
+                    .setMatchString(BlockchainHelper.CSVSTRINGS_NAMESPACE + "*")
                     .setFilterType(EventFilter.FilterType.REGEX_ANY)
                     .build();
 
@@ -176,7 +174,7 @@ class EventHandler {
             }
             if (respMsg == null ||
                     respMsg.getMessageType() != sawtooth.sdk.protobuf.Message.MessageType.CLIENT_EVENTS_SUBSCRIBE_RESPONSE) {
-                _hyperzmq.logprint("Response was no subscription response");
+                hyperzmq.print("Response was no subscription response");
                 return;
             }
             ClientEventsSubscribeResponse cesr = null;
@@ -186,11 +184,11 @@ class EventHandler {
                 e.printStackTrace();
             }
             if (cesr == null) {
-                _hyperzmq.logprint("ClientEventsSubscribeResponse is null");
+                hyperzmq.print("ClientEventsSubscribeResponse is null");
                 return;
             }
             if (cesr.getStatus() != ClientEventsSubscribeResponse.Status.OK) {
-                _hyperzmq.logprint("Subscribing failed: " + cesr.getResponseMessage());
+                hyperzmq.print("Subscribing failed: " + cesr.getResponseMessage());
                 return;
             }
 
@@ -200,8 +198,8 @@ class EventHandler {
                 try {
                     Message msg = Message.parseFrom(recv);
                     if (msg.getMessageType() != Message.MessageType.CLIENT_EVENTS) {
-                        _hyperzmq.logprint("received event message is not of type event!");
-                        _hyperzmq.logprint("message: " + msg.toString());
+                        hyperzmq.print("received event message is not of type event!");
+                        hyperzmq.print("message: " + msg.toString());
                     }
 
                     EventList list = EventList.parseFrom(msg.getContent());
@@ -217,7 +215,7 @@ class EventHandler {
 
                         String[] parts = csvMessage.split(",");
                         if (parts.length < 2) {
-                            _hyperzmq.logprint("Malformed event payload: " + csvMessage);
+                            hyperzmq.print("Malformed event payload: " + csvMessage);
                             return;
                         }
                         String group = parts[0];
@@ -225,7 +223,7 @@ class EventHandler {
                         //_hyperzmq.logprint("Group: " + group);
                         //_hyperzmq.logprint("Encrypted Message: " + encMessage);
 
-                        _hyperzmq.newEventReceived(group, encMessage);
+                        hyperzmq.newEventReceived(group, encMessage);
                     }
                 } catch (InvalidProtocolBufferException e) {
                     e.printStackTrace();
@@ -234,7 +232,7 @@ class EventHandler {
             }
             socket.close();
         });
-        _subscriptionListeners.put(t, atomicBoolean);
+        subscriptionListeners.put(t, atomicBoolean);
         t.start();
     }
 
@@ -243,7 +241,7 @@ class EventHandler {
     }
 
     public void stopAllThreads() {
-        _subscriptionListeners.forEach((t, aBool) -> aBool.set(false));
+        subscriptionListeners.forEach((t, aBool) -> aBool.set(false));
     }
 }
 

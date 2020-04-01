@@ -1,5 +1,6 @@
 package txprocessor;
 
+import client.SawtoothUtils;
 import com.google.protobuf.ByteString;
 import sawtooth.sdk.processor.Context;
 import sawtooth.sdk.processor.TransactionHandler;
@@ -18,7 +19,7 @@ public class CSVStringsHandler implements TransactionHandler {
 
     CSVStringsHandler() {
         // Convention
-        namespace = Utils.hash512(transactionFamilyName().getBytes(UTF_8)).substring(0, 6);
+        namespace = SawtoothUtils.hash(transactionFamilyName()).substring(0, 6);
         print("Starting TransactionProcessor with namespace '" + namespace + "'");
     }
 
@@ -62,7 +63,8 @@ public class CSVStringsHandler implements TransactionHandler {
         TransactionHeader header = tpProcessRequest.getHeader();
 
         // Check payload integrity
-        String receivedHash = Utils.hash512(tpProcessRequest.getPayload().toByteArray());
+        //String receivedHash = Utils.hash512(tpProcessRequest.getPayload().toByteArray());
+        String receivedHash = SawtoothUtils.hash(tpProcessRequest.getPayload().toString(UTF_8));
         if (!header.getPayloadSha512().equals(receivedHash)) {
             throw new InvalidTransactionException("Payload or Header is corrupted!");
         }
@@ -89,8 +91,7 @@ public class CSVStringsHandler implements TransactionHandler {
         if (namespace.equals(output)) {
             // Wildcard output, calculate an address in the namespace
             // Use the message bytes as identifier for the remaining bytes
-            String hashedMsg = Utils.hash512(message.getBytes(UTF_8));
-            address = namespace + hashedMsg.substring(hashedMsg.length() - 64);
+            address = SawtoothUtils.namespaceHashAddress(namespace, message);
             //print("Address calculated as: " + address + "  (size=" + address.length() + ")");
         } else {
             // Concrete output, use that
@@ -134,27 +135,6 @@ public class CSVStringsHandler implements TransactionHandler {
             internalError.printStackTrace();
         }
         /////////////////////////////////////////////////////////////////////
-    }
-
-    private void checkStateAtAddress(String address, Context context) {
-        Collection<String> checkAddr = new ArrayList<>();
-        checkAddr.add(address);
-        Map<String, ByteString> alreadySetValues = null;
-        try {
-            alreadySetValues = context.getState(checkAddr);
-        } catch (InternalError internalError) {
-            internalError.printStackTrace();
-        } catch (InvalidTransactionException e) {
-            e.printStackTrace();
-        }
-        if (alreadySetValues != null) {
-            alreadySetValues.forEach((key, value) ->
-                    print("Values at address before: "
-                            + key + "=" + value.toString(UTF_8)));
-            print("... will be overwritten.");
-        } else {
-            print("address is empty.");
-        }
     }
 
     void print(String message) {

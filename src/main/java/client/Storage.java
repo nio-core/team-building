@@ -20,38 +20,38 @@ class Storage {
     static final String DEFAULT_DATA_PATH = "data.dat";
     static final String DATA_ENCRYPTION_KEY_ALIAS = "data_encryption_key";
     static final String SAWTOOTHER_SIGNER_KEY = "sawtooth_signer_key";
-    private String _keystorePath;
-    private char[] _keystorePassword;
-    private String _datafilePath;
-    private SecretKey _dataEncryptionKey;
+    private String keystorePath;
+    private char[] keystorePassword;
+    private String datafilePath;
+    private SecretKey dataEncryptionKey;
 
     Storage(String _keystorePath, @Nonnull char[] _keystorePassword, String _datafilePath) {
-        this._keystorePath = _keystorePath != null ? _keystorePath : DEFAULT_KEYSTORE_PATH;
-        this._keystorePassword = _keystorePassword;
-        this._datafilePath = _datafilePath != null ? _datafilePath : DEFAULT_DATA_PATH;
+        this.keystorePath = _keystorePath != null ? _keystorePath : DEFAULT_KEYSTORE_PATH;
+        this.keystorePassword = _keystorePassword;
+        this.datafilePath = _datafilePath != null ? _datafilePath : DEFAULT_DATA_PATH;
         //System.out.println("Storage with keystore path=" + _keystorePath + " and data file path=" + _datafilePath);
     }
 
     void saveData(Data data) {
-        _dataEncryptionKey = data.keys.get(DATA_ENCRYPTION_KEY_ALIAS);
+        dataEncryptionKey = data.keys.get(DATA_ENCRYPTION_KEY_ALIAS);
         saveKeystore(data.keys);
         saveDataFile(data.data);
     }
 
     Data loadData() {
-        Map<String, SecretKey> keys = loadKeystore(_keystorePath, _keystorePassword);
+        Map<String, SecretKey> keys = loadKeystore(keystorePath, keystorePassword);
         return new Data(keys, loadDataFile());
     }
 
     private List<String> readFromFile() throws IOException {
-        BufferedReader reader = new BufferedReader(new FileReader(_datafilePath));
+        BufferedReader reader = new BufferedReader(new FileReader(datafilePath));
         List<String> lines = reader.lines().collect(Collectors.toList());
         reader.close();
         return lines;
     }
 
     private void writeToFile(List<String> lines) throws IOException {
-        BufferedWriter writer = new BufferedWriter(new FileWriter(_datafilePath));
+        BufferedWriter writer = new BufferedWriter(new FileWriter(datafilePath));
         for (String line : lines) {
             writer.write(line);
         }
@@ -59,14 +59,14 @@ class Storage {
     }
 
     private void saveDataFile(Map<String, String> data) {
-        if (_dataEncryptionKey == null) {
+        if (dataEncryptionKey == null) {
             throw new InternalError("Data encryption key is null, cannot proceed.");
         }
         JSONObject jsonObject = new JSONObject(data);
         //System.out.println("String to write: " + jsonObject.toString());
         String toWrite;
         try {
-            toWrite = Crypto.encrypt(jsonObject.toString(), _dataEncryptionKey);
+            toWrite = Crypto.encrypt(jsonObject.toString(), dataEncryptionKey);
             writeToFile(Collections.singletonList(toWrite));
         } catch (GeneralSecurityException | IOException e) {
             e.printStackTrace();
@@ -75,7 +75,7 @@ class Storage {
     }
 
     private Map<String, String> loadDataFile() {
-        if (_dataEncryptionKey == null) {
+        if (dataEncryptionKey == null) {
             throw new InternalError("Data encryption key is null, cannot proceed.");
         }
         Map<String, String> ret = new HashMap<>();
@@ -89,7 +89,7 @@ class Storage {
         }
         for (String s : strings) {
             try {
-                String decrypted = Crypto.decrypt(s, _dataEncryptionKey);
+                String decrypted = Crypto.decrypt(s, dataEncryptionKey);
                 //System.out.println("Strings from file " + decrypted);
                 JSONObject jsonObject = new JSONObject(decrypted);
                 for (String key : jsonObject.keySet()) {
@@ -105,7 +105,7 @@ class Storage {
     private void saveKeystore(Map<String, SecretKey> data) {
         try {
             KeyStore ks = KeyStore.getInstance(PKCS_12);
-            ks.load(null, _keystorePassword);
+            ks.load(null, keystorePassword);
             // TODO add even more passwords?
             KeyStore.PasswordProtection protParam = new KeyStore.PasswordProtection(new char[]{'x'});
             data.forEach((groupName, key) -> {
@@ -117,10 +117,10 @@ class Storage {
                 }
             });
 
-            ks.setEntry(DATA_ENCRYPTION_KEY_ALIAS, new KeyStore.SecretKeyEntry(_dataEncryptionKey), protParam);
+            ks.setEntry(DATA_ENCRYPTION_KEY_ALIAS, new KeyStore.SecretKeyEntry(dataEncryptionKey), protParam);
             //System.out.println("saved data enc key as: " + Base64.getEncoder().encodeToString(_dataEncryptionKey.getEncoded()));
-            FileOutputStream fos = new FileOutputStream(_keystorePath);
-            ks.store(fos, _keystorePassword);
+            FileOutputStream fos = new FileOutputStream(keystorePath);
+            ks.store(fos, keystorePassword);
         } catch (KeyStoreException | CertificateException | NoSuchAlgorithmException | IOException e) {
             //e.printStackTrace();
             throw new InternalError("Saving the keystore failed with exception: " + e.getLocalizedMessage());
@@ -152,7 +152,7 @@ class Storage {
         if (key == null) {
             throw new InternalError("client.Data Encryption Key could not be loaded");
         }
-        _dataEncryptionKey = key;
+        dataEncryptionKey = key;
         //System.out.println("Loaded data enc key as: " + Base64.getEncoder().encodeToString(_dataEncryptionKey.getEncoded()));
         return ret;
     }

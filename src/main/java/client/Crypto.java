@@ -25,16 +25,16 @@ class Crypto {
     private static final int GCM_TAG_SIZE_BITS = 128;
     private static final int GCM_IV_SIZE_BYTES = 12;
 
-    private char[] _keyStorePass;
-    private String _pathToKeyStore;
-    private HyperZMQ _hyperZMQ;
-    private Map<String, SecretKey> _groupKeys = new HashMap<>();
-    private List<Keypair> _curveKeys = new ArrayList<>();
-    private SecretKey _dataEncryptionKey;
-    private Secp256k1Context _context;
-    private PrivateKey _privateKey;
-    private Signer _signer;
-    private Storage _storage;
+    private char[] keyStorePass;
+    private String pathToKeyStore;
+    private HyperZMQ hyperZMQ;
+    private Map<String, SecretKey> groupKeys = new HashMap<>();
+    private List<Keypair> curveKeys = new ArrayList<>();
+    private SecretKey dataEncryptionKey;
+    private Secp256k1Context context;
+    private PrivateKey privateKey;
+    private Signer signer;
+    private Storage storage;
 
     /**
      * Create a instance which loads the KeyStore and DataFile from the given path (which should include <filename>.jks. and <filename>.dat)
@@ -44,10 +44,10 @@ class Crypto {
      * @param createNew    whether to create a new keystore
      */
     Crypto(HyperZMQ hyperZMQ, String keystorePath, char[] password, String dataFilePath, boolean createNew) {
-        this._keyStorePass = password;
-        this._pathToKeyStore = keystorePath;
-        this._hyperZMQ = hyperZMQ;
-        this._storage = new Storage(_pathToKeyStore, _keyStorePass, dataFilePath);
+        this.keyStorePass = password;
+        this.pathToKeyStore = keystorePath;
+        this.hyperZMQ = hyperZMQ;
+        this.storage = new Storage(pathToKeyStore, keyStorePass, dataFilePath);
         if (createNew) {
             createNewCryptoMaterial();
         } else {
@@ -70,11 +70,11 @@ class Crypto {
      * Saves the data afterwards.
      */
     private void createNewCryptoMaterial() {
-        _context = new Secp256k1Context();
-        _privateKey = _context.newRandomPrivateKey();
-        _signer = new Signer(_context, _privateKey);
+        context = new Secp256k1Context();
+        privateKey = context.newRandomPrivateKey();
+        signer = new Signer(context, privateKey);
 
-        _dataEncryptionKey = generateSecretKey();
+        dataEncryptionKey = generateSecretKey();
         save();
     }
 
@@ -92,11 +92,11 @@ class Crypto {
     }
 
     String getSawtoothPublicKey() {
-        return _signer.getPublicKey().hex();
+        return signer.getPublicKey().hex();
     }
 
     String encrypt(String plainText, String group) throws GeneralSecurityException, IllegalStateException {
-        SecretKey key = _groupKeys.get(group);
+        SecretKey key = groupKeys.get(group);
         if (key == null) throw new IllegalStateException("No key found for group=" + group);
         return encrypt(plainText, key);
     }
@@ -104,8 +104,8 @@ class Crypto {
     /**
      * Decrypt the data with the given key and returns a BASE64 ENCODED STRING
      *
-     * @param plainText
-     * @param key       AES-GCM 256bit key
+     * @param plainText7
+     * @param key        AES-GCM 256bit key
      * @return ciphertext IN BASE64 ENCODING
      * @throws GeneralSecurityException
      */
@@ -127,7 +127,7 @@ class Crypto {
     }
 
     String decrypt(String encryptedText, String group) throws GeneralSecurityException, IllegalStateException {
-        SecretKey key = _groupKeys.get(group);
+        SecretKey key = groupKeys.get(group);
         if (key == null) throw new IllegalStateException("No key found for group=" + group);
         return decrypt(encryptedText, key);
     }
@@ -146,25 +146,25 @@ class Crypto {
     }
 
     List<String> getGroupNames() {
-        return new ArrayList<>(_groupKeys.keySet());
+        return new ArrayList<>(groupKeys.keySet());
     }
 
     boolean hasKeyForGroup(String groupName) {
-        return _groupKeys.containsKey(groupName);
+        return groupKeys.containsKey(groupName);
     }
 
     String getKeyForGroup(String groupName) {
-        if (_groupKeys.containsKey(groupName)) {
-            return new String(Base64.getEncoder().encode(_groupKeys.get(groupName).getEncoded()), UTF_8);
+        if (groupKeys.containsKey(groupName)) {
+            return new String(Base64.getEncoder().encode(groupKeys.get(groupName).getEncoded()), UTF_8);
         }
         return null;
     }
 
     void createGroup(String name) throws IllegalArgumentException {
-        if (_groupKeys.containsKey(name)) {
+        if (groupKeys.containsKey(name)) {
             throw new IllegalArgumentException("Name already in use");
         }
-        _groupKeys.put(name, generateSecretKey());
+        groupKeys.put(name, generateSecretKey());
         save();
         //log.info("created group " + name + " with key (b64) " + Base64.getEncoder().encodeToString(_keys.get(name).getEncoded()));
     }
@@ -174,37 +174,37 @@ class Crypto {
         if (keyBytes.length != KEY_LENGTH) {
             throw new IllegalArgumentException("Key size is invalid! Expected 32, got " + keyBytes.length);
         }
-        _groupKeys.put(groupName, new SecretKeySpec(Base64.getDecoder().decode(key), "AES"));
+        groupKeys.put(groupName, new SecretKeySpec(Base64.getDecoder().decode(key), "AES"));
         save();
         //log.info("Added group " + groupName + " with key (b64) " + Base64.getEncoder().encodeToString(_keys.get(groupName).getEncoded()));
     }
 
     void removeGroup(String groupName) {
-        _groupKeys.remove(groupName);
+        groupKeys.remove(groupName);
     }
 
     private void save() {
         // Prepare the other 'non-key' data
         Map<String, String> dataMap = new HashMap<>();
-        dataMap.put(SAWTOOTHER_SIGNER_KEY, _privateKey.hex());
+        dataMap.put(SAWTOOTHER_SIGNER_KEY, privateKey.hex());
         // Since the curve keys have the alias built in, the maps key is not needed
-        for (int i = 0; i < _curveKeys.size(); i++) {
-            dataMap.put(String.valueOf(i), _curveKeys.get(i).toString());
+        for (int i = 0; i < curveKeys.size(); i++) {
+            dataMap.put(String.valueOf(i), curveKeys.get(i).toString());
         }
 
         //
-        _groupKeys.put(DATA_ENCRYPTION_KEY_ALIAS, _dataEncryptionKey);
-        _storage.saveData(new Data(_groupKeys, dataMap));
+        groupKeys.put(DATA_ENCRYPTION_KEY_ALIAS, dataEncryptionKey);
+        storage.saveData(new Data(groupKeys, dataMap));
     }
 
     private void load() {
-        Data data = _storage.loadData();
-        _dataEncryptionKey = data.keys.remove(DATA_ENCRYPTION_KEY_ALIAS);
+        Data data = storage.loadData();
+        dataEncryptionKey = data.keys.remove(DATA_ENCRYPTION_KEY_ALIAS);
 
-        _groupKeys = data.keys;
-        _context = new Secp256k1Context();
+        groupKeys = data.keys;
+        context = new Secp256k1Context();
         PrivateKey key = new Secp256k1PrivateKey(Utils.HEX.decode(data.getSigningKeyHex()));
-        _signer = new Signer(_context, key);
+        signer = new Signer(context, key);
         data.data.remove(SAWTOOTHER_SIGNER_KEY);
         // restore the curve keys, the data map does not contain the data encryption key anymore
         ArrayList<Keypair> tmp = new ArrayList<>();
@@ -216,27 +216,27 @@ class Crypto {
             }
 
         });
-        _curveKeys = tmp;
+        curveKeys = tmp;
     }
 
     Signer getSigner() {
-        return _signer;
+        return signer;
     }
 
     public void addKeypair(Keypair kp) {
-        _curveKeys.add(kp);
+        curveKeys.add(kp);
         save();
     }
 
     public Keypair getKeypair(String alias) {
-        return _curveKeys.stream().
+        return curveKeys.stream().
                 filter(key -> alias.equals(key.alias)).
                 findAny().
                 orElse(null);
     }
 
     public boolean removeKeypair(String alias) {
-        boolean b = _curveKeys.removeIf(kp -> alias.equals(kp.alias));
+        boolean b = curveKeys.removeIf(kp -> alias.equals(kp.alias));
         save();
         return b;
     }

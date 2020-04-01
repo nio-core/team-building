@@ -75,9 +75,9 @@ services:
         tail -f /dev/null \
         \""
     
-  identity:
-    image: hyperledger/sawtooth-identity-tp:chime
-    container_name: sawtooth-identity-tp
-    depends_on:
-      - validator
-    entrypoint: identity-tp -vv -C tcp://validator:4004
+  #identity:
+    #image: hyperledger/sawtooth-identity-tp:chime
+    #container_name: sawtooth-identity-tp
+    #depends_on:
+      #- validator
+    #entrypoint: identity-tp -vv -C tcp://validator:4004

@@ -33,8 +33,8 @@ services:
       - "4004:4004"
     # start the validator with an empty genesis batch
     entrypoint: "bash -c \"\
-        sawadm keygen && \
-        sawtooth keygen root && \
+        sawadm keygen --force && \
+        sawtooth keygen root --force && \
         sawset genesis -k /root/.sawtooth/keys/root.priv && \
         sawset proposal create \
           -k /root/.sawtooth/keys/root.priv \
@@ -71,7 +71,7 @@ services:
     depends_on:
       - rest-api
     entrypoint: "bash -c \"\
-        sawtooth keygen && \
+        sawtooth keygen --force && \
         tail -f /dev/null \
         \""
     

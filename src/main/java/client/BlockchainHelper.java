@@ -116,28 +116,32 @@ public class BlockchainHelper {
 
     String getStateZMQ(String address) {
         ClientStateGetRequest req = ClientStateGetRequest.newBuilder()
+                .clearStateRoot()
                 .setAddress(address)
                 .build();
-
-        System.out.println("ClientStateGetRequest: " + req.toString());
+        //System.out.println("ClientStateGetRequest: " + req.toString());
 
         Message message = Message.newBuilder()
                 .setMessageType(Message.MessageType.CLIENT_STATE_GET_REQUEST)
-                .setContent(ByteString.copyFrom(address.getBytes(StandardCharsets.UTF_8)))
+                .setContent(req.toByteString())
                 .setCorrelationId(EventHandler.CORRELATION_ID)
                 .build();
+        //System.out.println("Request Message: " + message.toString());
 
         submitSocket.send(message.toByteArray());
         byte[] bResponse = submitSocket.recv();
-        ClientStateGetResponse cbsResp = null;
+        //System.out.println("get state response raw: " + new String(bResponse));
+        Message respMessage;
         try {
-            cbsResp = ClientStateGetResponse.parseFrom(bResponse);
+            respMessage = Message.parseFrom(bResponse);
+            // Extract the ClientStateGetResponse
+            ClientStateGetResponse csgr = ClientStateGetResponse.parseFrom(respMessage.getContent());
+            //System.out.println("csgr: " + csgr.toString());
+            return csgr.getValue().toStringUtf8();
         } catch (InvalidProtocolBufferException e) {
             e.printStackTrace();
+            return "";
         }
-        System.out.println("ClientStateGetResponse: " + cbsResp);
-
-        return "true";
     }
 
     private boolean sendBatchListZMQ(byte[] body) {
@@ -154,14 +158,18 @@ public class BlockchainHelper {
             submitSocket.send(message.toByteArray());
 
             byte[] bResponse = submitSocket.recv();
-            ClientBatchSubmitResponse cbsResp = ClientBatchSubmitResponse.parseFrom(bResponse);
-            System.out.println("ClientBatchSubmitResponse: " + cbsResp);
+            Message respMessage = Message.parseFrom(bResponse);
+            //System.out.println("response message: " + respMessage.toString());
+            ClientBatchSubmitResponse cbsResp = ClientBatchSubmitResponse.parseFrom(respMessage.getContent());
+            //System.out.println("ClientBatchSubmitResponse parsed: " + cbsResp);
+            // Check submission status
+            boolean success = cbsResp.getStatus() == ClientBatchSubmitResponse.Status.OK;
+            System.out.println("Batch submit was " + (success ? "successful" : "not successful"));
+            return success;
         } catch (InvalidProtocolBufferException e) {
             e.printStackTrace();
             return false;
         }
-
-        return true;
     }
 
     private boolean sendBatchListRESTAPI(byte[] body) throws IOException {

@@ -84,9 +84,7 @@ public class CSVStringsHandler implements TransactionHandler {
         // An address is a hex-encoded 70 character string representing 35 bytes
         // The address format contains a 3 byte (6 hex character) namespace prefix
         // The rest of the address format is up to the implementation
-
         String address;
-
         String output = header.getOutputs(0);
         if (namespace.equals(output)) {
             // Wildcard output, calculate an address in the namespace
@@ -101,23 +99,13 @@ public class CSVStringsHandler implements TransactionHandler {
         }
         //print("Using address: " + address);
 
-        //checkStateAtAddress(address, context); // optional
-
         // Prepare the message to be set
         // Has the same format has the input: <group>,<encrypted message> -> forward the payload
         // The data is given as ByteString and stores in Base64 (Sawtooth specification)
         ByteString writeToState = tpProcessRequest.getPayload();
-        Map.Entry<String, ByteString> entry = new AbstractMap.SimpleEntry<>(address, writeToState);
-        Collection<Map.Entry<String, ByteString>> addressValues = Arrays.asList(entry);
-        Collection<String> returnedAddresses = context.setState(addressValues);
-
-        // Check if successful
-        if (returnedAddresses.isEmpty()) {
+        if(!TPUtils.writeToAddress(writeToState.toStringUtf8(), address, context)){
             throw new InvalidTransactionException("Set state error");
         }
-        //print("Returned Addresses from setting new value:");
-        //returnedAddresses.forEach(this::print);
-
 
         // Fire event with the message //////////////////////////////////////
         // TODO which things to add to the event

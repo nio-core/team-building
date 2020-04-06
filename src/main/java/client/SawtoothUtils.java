@@ -34,6 +34,7 @@ public class SawtoothUtils {
      * @return the address build from the namespace and the last 64 characters of the hash value
      */
     public static String namespaceHashAddress(String namespace, String toHash) {
+        print("Hashing: " + toHash);
         String hash = hash(toHash);
         return namespace + hash.substring(hash.length() - 64);
     }
@@ -56,25 +57,8 @@ public class SawtoothUtils {
         return hex.toString();
     }
 
-    // TODO WIP
-    public static void checkStateAtAddress(String address, Context context) {
-        Collection<String> checkAddr = new ArrayList<>();
-        checkAddr.add(address);
-        Map<String, ByteString> alreadySetValues = null;
-        try {
-            alreadySetValues = context.getState(checkAddr);
-        } catch (InternalError internalError) {
-            internalError.printStackTrace();
-        } catch (InvalidTransactionException e) {
-            e.printStackTrace();
-        }
-        if (alreadySetValues != null) {
-            alreadySetValues.forEach((key, value) ->
-                    System.out.println("Values at address before: "
-                            + key + "=" + value.toString(UTF_8)));
-            System.out.println("... will be overwritten.");
-        } else {
-            System.out.println("address is empty.");
-        }
+    private static void print(String message) {
+        System.out.println("[SawtoothUtils] " + message);
     }
+
 }

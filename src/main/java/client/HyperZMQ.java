@@ -15,6 +15,7 @@ import sawtooth.sdk.signing.Secp256k1Context;
 import sawtooth.sdk.signing.Secp256k1PublicKey;
 import zmq.io.mechanism.curve.Curve;
 
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.*;
@@ -538,6 +539,8 @@ public class HyperZMQ {
      * @return public key of the current entity in hex encoding
      */
     public String getSawtoothPublicKey() {
+        // vvv can be used for better readability when debugging
+        //return clientID + "-PublicKey";
         return crypto.getSawtoothPublicKey();
     }
 
@@ -663,10 +666,27 @@ public class HyperZMQ {
         }
 
         String address = SawtoothUtils.namespaceHashAddress(BlockchainHelper.KEY_EXCHANGE_RECEIPT_NAMESPACE, groupName);
-        String resp;
-        resp = blockchainHelper.getStateZMQ(address);
+        print("Getting members of group '" + groupName + "' at address " + address);
+        String resp = blockchainHelper.getStateZMQ(address);
+        if (resp == null) return null;
         //print("getGroupMembers: " + resp);
-        List<String> ret = Arrays.asList(resp.split(","));
+        return Arrays.asList(resp.split(","));
+    }
+
+    public KeyExchangeReceipt getKeyExchangeReceipt(String memberPublicKey, String applicantPublicKey, @Nullable String group) {
+        String toHash = memberPublicKey + applicantPublicKey;
+        if (group != null) {
+            toHash += group;
+        }
+
+        String address = SawtoothUtils.namespaceHashAddress(BlockchainHelper.KEY_EXCHANGE_RECEIPT_NAMESPACE, toHash);
+        print("Getting receipt at address: " + address);
+        String recv = blockchainHelper.getStateZMQ(address);
+        try {
+            return new Gson().fromJson(recv, KeyExchangeReceipt.class);
+        } catch (JsonSyntaxException e) {
+            print("Could not deserialize receipt: " + recv);
+        }
         return null;
     }
 }

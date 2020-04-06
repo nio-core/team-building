@@ -68,6 +68,8 @@ public class KeyExReceiptHandler implements TransactionHandler {
         }
 
         // Verify the member that shared a key is the one that submitted the KeyExchangeReceipt
+        // TODO undo comment around verifications
+
         if (!transactionRequest.getHeader().getSignerPublicKey().equals(receipt.getMemberPublicKey())) {
             print("Member and signer key are different!\nsigner: "
                     + transactionRequest.getHeader().getSignerPublicKey()
@@ -98,27 +100,19 @@ public class KeyExReceiptHandler implements TransactionHandler {
             print("Signature verification failed!");
             throw new InvalidTransactionException("Receipt signature is invalid");
         }
-
+         // TODO uncomment <<
         // Prepare the address to write to: hash(pubMember, pubJoiner, group), if JOIN_NETWORK without group
         String toHash = receipt.getMemberPublicKey() + receipt.getApplicantPublicKey();
         if (receipt.getReceiptType() == ReceiptType.JOIN_GROUP) {
             toHash += receipt.getGroup();
         }
 
-        String hash = SawtoothUtils.hash(toHash);
-        String address = namespace + hash.substring(hash.length() - 64);
-        print("toHash for address: " + toHash);
+        String address = SawtoothUtils.namespaceHashAddress(this.namespace, toHash);
+        //print("toHash for address: " + toHash);
         print("Calculated Address: " + address);
 
-        // Write the payload (receipt) to the address
-        ByteString writeToState = ByteString.copyFrom(receipt.toString(), UTF_8);
-        Map.Entry<String, ByteString> entry = new AbstractMap.SimpleEntry<>(address, writeToState);
-        Collection<Map.Entry<String, ByteString>> addressValues = Arrays.asList(entry);
-        Collection<String> returnedAddresses = state.setState(addressValues);
-
-        // Check if successful
-        if (returnedAddresses.isEmpty()) {
-            throw new InvalidTransactionException("Set state error");
+        if (!TPUtils.writeToAddress(receipt.toString(), address, state)) {
+            throw new InvalidTransactionException("Unable to write receipt to state");
         }
 
         // Update the entry that has the keys which are in the given group
@@ -131,26 +125,23 @@ public class KeyExReceiptHandler implements TransactionHandler {
                     Collections.singletonList(groupAddress));
 
             ByteString bsEntry = entries.get(groupAddress);
-            List<String> lEntries = new ArrayList<>(Arrays.asList(bsEntry.toString().split(",")));
+            String s5 = bsEntry.toStringUtf8();
+            print("group entry: " + s5);
+            List<String> lEntries = new ArrayList<>(Arrays.asList(bsEntry.toStringUtf8().split(",")));
             print("Entries at address: " + lEntries.toString());
 
             lEntries.add(receipt.getApplicantPublicKey());
             lEntries.add(receipt.getMemberPublicKey()); // double check, gets removed here vvv if it is already in it
-            String strToWrite = lEntries.stream().distinct().reduce("", (s1, s2) -> s1 += s2 + ",");
+            String strToWrite = lEntries.stream().distinct().reduce("", (s1, s2) -> {
+                if (s2.isEmpty()) return s1;
+                return s1 += s2 + ",";
+            });
             strToWrite = strToWrite.substring(0, (strToWrite.length() - 1)); // remove trailing ','
-            print("Writing updated entry: " + strToWrite);
-            ByteString toWrite = ByteString.copyFrom(strToWrite.getBytes(UTF_8));
-            Map.Entry<String, ByteString> entry2 = new AbstractMap.SimpleEntry<>(address, toWrite);
-            Collection<Map.Entry<String, ByteString>> addressValues2 = Collections.singletonList(entry2);
-            Collection<String> returnedAddresses2 = state.setState(addressValues2);
 
-            // Check if successful
-            if (returnedAddresses.isEmpty()) {
-                throw new InvalidTransactionException("Set state error");
+            if (!TPUtils.writeToAddress(strToWrite, groupAddress, state)) {
+                throw new InvalidTransactionException("Unable to update group member entry");
             }
-
         }
     }
-
 }
 

@@ -23,7 +23,7 @@ import java.util.*;
 import static client.Envelope.*;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-public class HyperZMQ {
+public class HyperZMQ implements AutoCloseable {
 
     private EventHandler eventHandler;
     private Crypto crypto;
@@ -527,8 +527,9 @@ public class HyperZMQ {
      * CALL THIS METHOD WHEN FINISHED WITH THIS INSTANCE AND YOU STILL WANT TO CONTINUE.
      * STOPS ALL THREADS RELATED TO THIS INSTANCE
      */
-    public void close() {
-        eventHandler.stopAllThreads();
+    @Override
+    public void close() throws Exception {
+        eventHandler.close();
     }
 
     /**
@@ -688,5 +689,9 @@ public class HyperZMQ {
             print("Could not deserialize receipt: " + recv);
         }
         return null;
+    }
+
+    public String getClientID() {
+        return clientID;
     }
 }

@@ -11,6 +11,8 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class TPUtils {
 
+    private static boolean doPrint = false;
+
     public static boolean writeToAddress(String toWrite, String address, Context state) {
         print("Writing '" + toWrite + "' to " + address);
         ByteString byteString = ByteString.copyFrom(toWrite.getBytes(UTF_8));
@@ -51,6 +53,7 @@ public class TPUtils {
     }
 
     private static void print(String message) {
-        System.out.println("[TPUtils] " + message);
+        if (doPrint)
+            System.out.println("[TPUtils] " + message);
     }
 }

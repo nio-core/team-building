@@ -21,6 +21,7 @@ public class SawtoothUtils {
 
     //private static final String HEX_CHARACTERS = "0123456789ABCDEF";
     private static final String HEX_CHARACTERS = "0123456789abcdef";
+    private static boolean doPrint = false;
 
     public static String hash(String toHash) {
         return Utils.hash512(toHash.getBytes(StandardCharsets.UTF_8));
@@ -58,7 +59,8 @@ public class SawtoothUtils {
     }
 
     private static void print(String message) {
-        System.out.println("[SawtoothUtils] " + message);
+        if (doPrint)
+            System.out.println("[SawtoothUtils] " + message);
     }
 
 }

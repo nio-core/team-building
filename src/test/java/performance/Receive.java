@@ -39,7 +39,11 @@ public class Receive {
         while (_run.get()) {
         }
 
-        recvClient.close();
+        try {
+            recvClient.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         System.out.println("----- Receiver exiting -----");
     }
 

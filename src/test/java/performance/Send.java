@@ -58,7 +58,11 @@ public class Send {
         }
         long endTime = System.currentTimeMillis();
         elapsedTime = endTime - startTime;
-        sendClient.close();
+        try {
+            sendClient.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         System.out.println("----- end sending -----");
         System.out.println("Needed " + elapsedTime + "ms to send " + SEND_MESSAGE_COUNT + " messages");
     }

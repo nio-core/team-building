@@ -25,9 +25,9 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class HyperZMQ implements AutoCloseable {
 
-    private EventHandler eventHandler;
-    private Crypto crypto;
-    private String clientID;
+    private final EventHandler eventHandler;
+    private final Crypto crypto;
+    private final String clientID;
     private List<ContractProcessor> _contractProcessors = new ArrayList<>();
     private Map<String, List<GroupCallback>> textmessageCallbacks = new HashMap<>();
     private Map<String, ContractProcessingCallback> contractCallbacks = new HashMap<>(); // key is the contractID

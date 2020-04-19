@@ -13,7 +13,6 @@ class EventHandler implements AutoCloseable {
     private final HyperZMQ hyperzmq;
     static final String CORRELATION_ID = "123";
 
-    static final String DEFAULT_VALIDATOR_URL = "tcp://127.0.0.1:4004";
     private String validatorURL = "";
     private final ZMQ.Socket socket;
     private final AtomicBoolean runListenerLoop = new AtomicBoolean(true);
@@ -142,7 +141,7 @@ class EventHandler implements AutoCloseable {
     }
 
     private String getValidatorURL() {
-        return validatorURL.isEmpty() ? DEFAULT_VALIDATOR_URL : validatorURL;
+        return validatorURL.isEmpty() ? ValidatorAddress.VALIDATOR_URL_DEFAULT : validatorURL;
     }
 
     private void print(String msg) {

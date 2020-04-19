@@ -14,14 +14,13 @@ import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLConnection;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class BlockchainHelper {
-    private static final String DEFAULT_REST_URL = "http://127.0.0.1:8008";
+
     private String baseRestAPIUrl;
     private Signer signer;
     private HyperZMQ hyperZMQ;
@@ -36,11 +35,11 @@ public class BlockchainHelper {
 
     BlockchainHelper(HyperZMQ hyperZMQ, Signer signer) {
         this.hyperZMQ = hyperZMQ;
-        baseRestAPIUrl = DEFAULT_REST_URL;
+        baseRestAPIUrl = ValidatorAddress.REST_URL_DEFAULT;
         this.signer = signer;
 
         submitSocket = zContext.createSocket(ZMQ.DEALER);
-        submitSocket.connect(EventHandler.DEFAULT_VALIDATOR_URL);
+        submitSocket.connect(ValidatorAddress.VALIDATOR_URL_DEFAULT);
     }
 
     public void setBaseRestAPIUrl(String baseRestAPIUrl) {
@@ -147,7 +146,7 @@ public class BlockchainHelper {
     private boolean sendBatchListZMQ(byte[] body) {
         try {
             ClientBatchSubmitRequest req = ClientBatchSubmitRequest.parseFrom(body);
-            //System.out.println("ClientBatchSubmitRequest: " + req.toString());
+            System.out.println("ClientBatchSubmitRequest: " + req.toString());
 
             Message message = Message.newBuilder()
                     .setMessageType(Message.MessageType.CLIENT_BATCH_SUBMIT_REQUEST)

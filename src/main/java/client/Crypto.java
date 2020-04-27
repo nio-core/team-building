@@ -19,7 +19,7 @@ import java.util.*;
 import static client.Storage.*;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-class Crypto {
+public class Crypto {
 
     private static final int KEY_LENGTH = 32; // in bytes = 256bit
     private static final int GCM_TAG_SIZE_BITS = 128;
@@ -91,6 +91,11 @@ class Crypto {
         return new SecretKeySpec(raw, "AES");
     }
 
+    public void setPrivateKey(PrivateKey privateKey) {
+        this.privateKey = privateKey;
+        this.signer = new Signer(new Secp256k1Context(), privateKey);
+    }
+
     String getSawtoothPublicKey() {
         return signer.getPublicKey().hex();
     }
@@ -104,12 +109,12 @@ class Crypto {
     /**
      * Decrypt the data with the given key and returns a BASE64 ENCODED STRING
      *
-     * @param plainText7
-     * @param key        AES-GCM 256bit key
+     * @param plainText
+     * @param key       AES-GCM 256bit key
      * @return ciphertext IN BASE64 ENCODING
      * @throws GeneralSecurityException
      */
-    static String encrypt(String plainText, SecretKey key) throws GeneralSecurityException {
+    public static String encrypt(String plainText, SecretKey key) throws GeneralSecurityException {
         Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
 
         byte[] iv = generateRandomIV();
@@ -132,7 +137,7 @@ class Crypto {
         return decrypt(encryptedText, key);
     }
 
-    static String decrypt(String encryptedText, SecretKey key) throws GeneralSecurityException {
+    public static String decrypt(String encryptedText, SecretKey key) throws GeneralSecurityException {
         Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
 
         byte[] ivAndCTWithTag = Base64.getDecoder().decode(encryptedText);

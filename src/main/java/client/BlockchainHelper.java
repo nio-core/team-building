@@ -42,6 +42,10 @@ public class BlockchainHelper {
         submitSocket.connect(ValidatorAddress.VALIDATOR_URL_DEFAULT);
     }
 
+    public void setSigner(Signer signer) {
+        this.signer = signer;
+    }
+
     public void setBaseRestAPIUrl(String baseRestAPIUrl) {
         this.baseRestAPIUrl = baseRestAPIUrl;
     }
@@ -146,7 +150,7 @@ public class BlockchainHelper {
     private boolean sendBatchListZMQ(byte[] body) {
         try {
             ClientBatchSubmitRequest req = ClientBatchSubmitRequest.parseFrom(body);
-            System.out.println("ClientBatchSubmitRequest: " + req.toString());
+            //System.out.println("ClientBatchSubmitRequest: " + req.toString());
 
             Message message = Message.newBuilder()
                     .setMessageType(Message.MessageType.CLIENT_BATCH_SUBMIT_REQUEST)

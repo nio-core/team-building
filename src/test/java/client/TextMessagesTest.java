@@ -76,8 +76,8 @@ public class TextMessagesTest {
 
     @Test
     public void testReadWriteToChain() {
-        CSVStringsTP.main(null);
-        sleep(1000);
+        // CSVStringsTP.main(null);
+        //sleep(1000);
 
         HyperZMQ client1 = new HyperZMQ("Client1", "password", true);
         HyperZMQ client2 = new HyperZMQ("Client2", "drowssap", true);
@@ -116,7 +116,7 @@ public class TextMessagesTest {
 
         client1.sendTextToChain(TESTGROUP, "testMessage");
 
-        sleep(3000);
+        sleep(5000);
 
         assertTrue(c1received.get());
         assertTrue(c2received.get());

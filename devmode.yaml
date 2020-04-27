@@ -18,15 +18,15 @@ version: "2.1"
 services:
 
   settings-tp:
-    image: hyperledger/sawtooth-settings-tp:chime
-    container_name: sawtooth-settings-tp-default
+    image: hyperledger/sawtooth-settings-tp
+    container_name: sawtooth-settings-tp
     depends_on:
       - validator
     entrypoint: settings-tp -vv -C tcp://validator:4004
 
   validator:
-    image: hyperledger/sawtooth-validator:chime
-    container_name: sawtooth-validator-default
+    image: hyperledger/sawtooth-validator
+    container_name: sawtooth-validator
     expose:
       - 4004
     ports:
@@ -50,15 +50,15 @@ services:
         \""
 
   devmode-engine:
-    image: hyperledger/sawtooth-devmode-engine-rust:chime
-    container_name: sawtooth-devmode-engine-rust-default
+    image: hyperledger/sawtooth-devmode-engine-rust
+    container_name: sawtooth-devmode-engine-rust
     depends_on:
       - validator
     entrypoint: devmode-engine-rust -C tcp://validator:5050
 
   rest-api:
-    image: hyperledger/sawtooth-rest-api:chime
-    container_name: sawtooth-rest-api-default
+    image: hyperledger/sawtooth-rest-api
+    container_name: sawtooth-rest-api
     ports:
       - "8008:8008"
     depends_on:
@@ -66,8 +66,8 @@ services:
     entrypoint: sawtooth-rest-api -C tcp://validator:4004 --bind rest-api:8008
 
   shell:
-    image: hyperledger/sawtooth-shell:chime
-    container_name: sawtooth-shell-default
+    image: hyperledger/sawtooth-shell
+    container_name: sawtooth-shell
     depends_on:
       - rest-api
     entrypoint: "bash -c \"\
@@ -76,7 +76,7 @@ services:
         \""
     
   #identity:
-    #image: hyperledger/sawtooth-identity-tp:chime
+    #image: hyperledger/sawtooth-identity-tp
     #container_name: sawtooth-identity-tp
     #depends_on:
       #- validator

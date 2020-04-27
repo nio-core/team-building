@@ -100,7 +100,7 @@ public class KeyExReceiptHandler implements TransactionHandler {
             print("Signature verification failed!");
             throw new InvalidTransactionException("Receipt signature is invalid");
         }
-         // TODO uncomment <<
+        // TODO uncomment <<
         // Prepare the address to write to: hash(pubMember, pubJoiner, group), if JOIN_NETWORK without group
         String toHash = receipt.getMemberPublicKey() + receipt.getApplicantPublicKey();
         if (receipt.getReceiptType() == ReceiptType.JOIN_GROUP) {
@@ -125,11 +125,9 @@ public class KeyExReceiptHandler implements TransactionHandler {
                     Collections.singletonList(groupAddress));
 
             ByteString bsEntry = entries.get(groupAddress);
-            String s5 = bsEntry.toStringUtf8();
-            print("group entry: " + s5);
             List<String> lEntries = new ArrayList<>(Arrays.asList(bsEntry.toStringUtf8().split(",")));
-            print("Entries at address: " + lEntries.toString());
-
+            print("Entries at address before update: " + lEntries.toString());
+            print("Adding " + receipt.getApplicantPublicKey());
             lEntries.add(receipt.getApplicantPublicKey());
             lEntries.add(receipt.getMemberPublicKey()); // double check, gets removed here vvv if it is already in it
             String strToWrite = lEntries.stream().distinct().reduce("", (s1, s2) -> {

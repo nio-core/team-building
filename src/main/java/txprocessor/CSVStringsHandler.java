@@ -1,7 +1,10 @@
 package txprocessor;
 
 import client.SawtoothUtils;
+import com.google.gson.Gson;
+import com.google.gson.JsonSyntaxException;
 import com.google.protobuf.ByteString;
+import joingroup.JoinGroupRequest;
 import sawtooth.sdk.processor.Context;
 import sawtooth.sdk.processor.TransactionHandler;
 import sawtooth.sdk.processor.Utils;
@@ -15,11 +18,11 @@ import java.util.*;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class CSVStringsHandler implements TransactionHandler {
-    private String namespace;
+    private final String namespace = "2f9d35";
 
     CSVStringsHandler() {
         // Convention
-        namespace = SawtoothUtils.hash(transactionFamilyName()).substring(0, 6);
+        //namespace = SawtoothUtils.hash(transactionFamilyName()).substring(0, 6);
         print("Starting TransactionProcessor with namespace '" + namespace + "'");
     }
 
@@ -52,7 +55,7 @@ public class CSVStringsHandler implements TransactionHandler {
      */
     @Override
     public void apply(TpProcessRequest tpProcessRequest, Context context) throws InvalidTransactionException, InternalError {
-        // Decode the payload which is a CSV String in UTF-8
+        // Decode the payload which is a CSV String or JoinGroupRequest in UTF-8
         if (tpProcessRequest.getPayload().isEmpty()) {
             throw new InvalidTransactionException("Payload is empty!");
         }
@@ -68,6 +71,34 @@ public class CSVStringsHandler implements TransactionHandler {
         if (!header.getPayloadSha512().equals(receivedHash)) {
             throw new InvalidTransactionException("Payload or Header is corrupted!");
         }
+
+        // Check if the payload is a JoinRequest
+        try {
+            JoinGroupRequest request = new Gson().fromJson(payloadStr, JoinGroupRequest.class);
+            //handleJoinRequest(tpProcessRequest, context, request);
+            print("handling JoinRequest...");
+
+            // First check if the applicant submitted the request
+            //TODO
+            if (request.getApplicantPublicKey().equals(tpProcessRequest.getHeader().getSignerPublicKey())) {
+                print("JoinRequest: public keys match");
+            }
+
+            print("broadcasting JoinRequest");
+            // Broadcast the the request via event subsystem
+            Map.Entry<String, String> e = new AbstractMap.SimpleEntry<>("address", namespace);
+            Collection<Map.Entry<String, String>> collection = Arrays.asList(e);
+            try {
+                context.addEvent(request.getGroupName(), collection, tpProcessRequest.getPayload());
+            } catch (InternalError internalError) {
+                internalError.printStackTrace();
+            }
+
+            // Nothing else to do?
+            return;
+        } catch (JsonSyntaxException ignored) {
+        }
+
 
         String[] strings = payloadStr.split(",");
 
@@ -103,17 +134,15 @@ public class CSVStringsHandler implements TransactionHandler {
         // Has the same format has the input: <group>,<encrypted message> -> forward the payload
         // The data is given as ByteString and stores in Base64 (Sawtooth specification)
         ByteString writeToState = tpProcessRequest.getPayload();
-        if(!TPUtils.writeToAddress(writeToState.toStringUtf8(), address, context)){
+        if (!TPUtils.writeToAddress(writeToState.toStringUtf8(), address, context)) {
             throw new InvalidTransactionException("Set state error");
         }
 
-        // Fire event with the message //////////////////////////////////////
-        // TODO which things to add to the event
-        //Map.Entry<String, String> e = new AbstractMap.SimpleEntry<>("signerPublicKey", header.getSignerPublicKey());
-        //Collection<Map.Entry<String, String>> collection = Arrays.asList(e);
-        String signerPub = header.getSignerPublicKey();
+        //String signerPub = header.getSignerPublicKey();
         //print("signer Public key: " + signerPub);
 
+        // Fire event with the message
+        print("firing event...");
         Map.Entry<String, String> e = new AbstractMap.SimpleEntry<>("address", address);
         Collection<Map.Entry<String, String>> collection = Arrays.asList(e);
         try {
@@ -122,7 +151,10 @@ public class CSVStringsHandler implements TransactionHandler {
         } catch (InternalError internalError) {
             internalError.printStackTrace();
         }
-        /////////////////////////////////////////////////////////////////////
+    }
+
+    private void handleJoinRequest(TpProcessRequest tpProcessRequest, Context context, JoinGroupRequest request) {
+
     }
 
     void print(String message) {

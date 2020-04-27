@@ -5,20 +5,33 @@ import com.google.gson.JsonSyntaxException;
 import contracts.Contract;
 import contracts.ContractProcessor;
 import contracts.ContractReceipt;
+import diffiehellman.DHKeyExchange;
+import diffiehellman.EncryptedStream;
+import joingroup.JoinGroupRequest;
+import joingroup.JoinGroupStatusCallback;
 import keyexchange.KeyExchangeReceipt;
+import keyexchange.ReceiptType;
 import org.bitcoinj.core.Utils;
 import org.zeromq.ZContext;
 import org.zeromq.ZMQ;
 import sawtooth.sdk.protobuf.Transaction;
-import sawtooth.sdk.signing.PublicKey;
-import sawtooth.sdk.signing.Secp256k1Context;
-import sawtooth.sdk.signing.Secp256k1PublicKey;
+import sawtooth.sdk.signing.*;
+import voting.VotingProcess;
 import zmq.io.mechanism.curve.Curve;
 
 import javax.annotation.Nullable;
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.security.GeneralSecurityException;
 import java.util.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import static client.Envelope.*;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -28,11 +41,13 @@ public class HyperZMQ implements AutoCloseable {
     private final EventHandler eventHandler;
     private final Crypto crypto;
     private final String clientID;
-    private List<ContractProcessor> _contractProcessors = new ArrayList<>();
+    private List<ContractProcessor> contractProcessors = new ArrayList<>();
     private Map<String, List<GroupCallback>> textmessageCallbacks = new HashMap<>();
     private Map<String, ContractProcessingCallback> contractCallbacks = new HashMap<>(); // key is the contractID
     private BlockchainHelper blockchainHelper;
     private ZContext zContext = new ZContext();
+
+    private VotingProcess votingProcess = null;
 
     // if this is set, passes all contract messages received in a group to all callbacks that are registered
     // also invokes the group callback with ContractReceipt additionally to the ReceiptCallback
@@ -380,11 +395,11 @@ public class HyperZMQ implements AutoCloseable {
     }
 
     public void addContractProcessor(ContractProcessor contractProcessor) {
-        _contractProcessors.add(contractProcessor);
+        contractProcessors.add(contractProcessor);
     }
 
     public void removeContractProcessor(ContractProcessor contractProcessor) {
-        _contractProcessors.remove(contractProcessor);
+        contractProcessors.remove(contractProcessor);
     }
 
     /**
@@ -408,6 +423,17 @@ public class HyperZMQ implements AutoCloseable {
      */
     public void createGroup(String groupName) {
         createGroup(groupName, null);
+
+        // Create a receipt to update the entry in the blockchain of who is in the group
+        // TODO explain
+        KeyExchangeReceipt receipt = new KeyExchangeReceipt(getSawtoothPublicKey(),
+                getSawtoothPublicKey(),
+                ReceiptType.JOIN_GROUP,
+                groupName,
+                System.currentTimeMillis());
+
+        receipt.setSignature(sign(receipt.getSignablePayload()));
+        sendKeyExchangeReceipt(receipt);
     }
 
     /**
@@ -570,7 +596,7 @@ public class HyperZMQ implements AutoCloseable {
         if (clientID.equals(contract.getRequestedProcessor()) || Contract.REQUESTED_PROCESSOR_ANY.equals(contract.getRequestedProcessor())) {
             // Find a processor to handle the message
             Object result = null;
-            for (ContractProcessor processor : _contractProcessors) {
+            for (ContractProcessor processor : contractProcessors) {
                 if (processor.getSupportedOperations().contains(contract.getOperation())) {
                     result = processor.processContract(contract);
                     if (result != null) {
@@ -662,10 +688,11 @@ public class HyperZMQ implements AutoCloseable {
     }
 
     public List<String> getGroupMembers(String groupName) {
+       /*
         if (!groupIsAvailable(groupName)) {
             throw new IllegalArgumentException("Cant get members of group that the client is not part of!");
         }
-
+*/
         String address = SawtoothUtils.namespaceHashAddress(BlockchainHelper.KEY_EXCHANGE_RECEIPT_NAMESPACE, groupName);
         print("Getting members of group '" + groupName + "' at address " + address);
         String resp = blockchainHelper.getStateZMQ(address);
@@ -693,5 +720,103 @@ public class HyperZMQ implements AutoCloseable {
 
     public String getClientID() {
         return clientID;
+    }
+
+    public void setVotingProcess(VotingProcess votingProcess) {
+        this.votingProcess = votingProcess;
+    }
+
+    // Debug function: changes sawtooth identity to the given key
+    public void setPrivateKey(String privateKeyHex) {
+        crypto.setPrivateKey(new Secp256k1PrivateKey(SawtoothUtils.hexDecode(privateKeyHex)));
+        blockchainHelper.setSigner(crypto.getSigner());
+    }
+
+    public Signer getSawtoothSigner() {
+        return crypto.getSigner();
+    }
+
+    public void tryJoinGroup(String groupName, JoinGroupStatusCallback joinGroupStatusCallback) {
+        // Get the client responsible for the group by checking the entry
+        List<String> members = getGroupMembers(groupName);
+        if (members.isEmpty()) {
+            // TODO
+            System.out.println(groupName + " does not have any members. Try creating the group.");
+            return;
+        }
+
+        String contactPubkey = members.get(members.size() - 1); // Last one to join the group is responsible
+        joinGroupStatusCallback.joinGroupStatusCallback("found contact: " + contactPubkey);
+
+        // TODO get voting args from outside
+        String address = "localhost";
+        int port = 4444;
+
+        JoinGroupRequest request = new JoinGroupRequest(getSawtoothPublicKey(),
+                contactPubkey,
+                groupName,
+                Arrays.asList("hallo", "arg2"), address, port);
+
+        joinGroupStatusCallback.joinGroupStatusCallback("Sending request: " + request.toString());
+
+        Transaction t = blockchainHelper.buildTransaction(BlockchainHelper.CSVSTRINGS_FAMILY,
+                "0.1",
+                request.toString().getBytes(UTF_8),
+                null);
+
+        blockchainHelper.buildAndSendBatch(Collections.singletonList(t));
+
+        // Now wait for the contact to perform key exchange
+        // TODO
+        FutureTask<EncryptedStream> server = new FutureTask<EncryptedStream>(new DHKeyExchange(clientID,
+                getSawtoothSigner(), contactPubkey, address, port, true));
+
+        joinGroupStatusCallback.joinGroupStatusCallback("Starting Diffie-Hellmann key exchange");
+        new Thread(server).start();
+
+        try (EncryptedStream stream = server.get(3000, TimeUnit.MILLISECONDS)) {
+            joinGroupStatusCallback.joinGroupStatusCallback("Getting group key");
+            String key = stream.readLine();
+            joinGroupStatusCallback.joinGroupStatusCallback("Received group key: " + key);
+            addGroup(request.getGroupName(), key);
+        } catch (ExecutionException e) {
+            e.printStackTrace();
+        } catch (TimeoutException e) {
+            e.printStackTrace();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    // TODO add callback
+    public void handleJoinGroupRequest(String serializedJoinRequest) {
+        JoinGroupRequest request = SawtoothUtils.deserializeMessage(serializedJoinRequest, JoinGroupRequest.class);
+        if (request == null) {
+            return;
+        }
+        print("Received JoinGroupRequest: " + request.toString());
+
+        // TODO voting here
+
+
+        FutureTask<EncryptedStream> client = new FutureTask<EncryptedStream>(new DHKeyExchange(clientID,
+                getSawtoothSigner(), request.getApplicantPublicKey(), request.getAddress(), request.getPort(), false));
+        print("Starting DHKE");
+        new Thread(client).start();
+
+        try (EncryptedStream stream = client.get(3000, TimeUnit.MILLISECONDS)) {
+            print("Sending group key");
+            String groupKey = getKeyForGroup(request.getGroupName());
+            if (groupKey == null) {
+                print("Client does not have the requested group key for: " + request.getGroupName());
+            }
+            stream.write(groupKey);
+            print("Key sent");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
     }
 }

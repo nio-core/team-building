@@ -17,5 +17,5 @@ it should be visible in the terminal that a transaction processor connected.
 [Example](https://github.com/StefanJakob/HyperZMQ/blob/eeecf8991f780d9f834e5898cad8c1a59eb3931e/src/test/java/client/ContractsTest.java#L44)
 
 ### New contract types
-New contract types can be added by implementing the `ContractProcessor` interface and adding them to the HyperZMQ instance.
+New contract types can be added by implementing the `ContractProcessor` interface and adding them to the instance.
 Specify the supported operation in the contract.

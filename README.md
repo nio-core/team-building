@@ -11,10 +11,10 @@ after the network started, the transaction processor can be started from `CSVStr
 it should be visible in the terminal that a transaction processor connected.
 
 ## Sending text
-[Example](https://github.com/StefanJakob/HyperZMQ/blob/eeecf8991f780d9f834e5898cad8c1a59eb3931e/src/test/java/client/TextMessagesTest.java#L16)
+[Example](https://github.com/nio-core/team-building/blob/eeecf8991f780d9f834e5898cad8c1a59eb3931e/src/test/java/client/TextMessagesTest.java#L16)
 
 ## Sending contract
-[Example](https://github.com/StefanJakob/HyperZMQ/blob/eeecf8991f780d9f834e5898cad8c1a59eb3931e/src/test/java/client/ContractsTest.java#L44)
+[Example](https://github.com/nio-core/team-building/blob/eeecf8991f780d9f834e5898cad8c1a59eb3931e/src/test/java/client/ContractsTest.java#L44)
 
 ### New contract types
 New contract types can be added by implementing the `ContractProcessor` interface and adding them to the instance.
